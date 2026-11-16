@@ -41,7 +41,6 @@
       padding-bottom: calc(76px + env(safe-area-inset-bottom));
     }
 
-    /* 修正 iPhone 動態島安全距離，徹底避開時間與電池列 */
     header {
       padding-top: calc(16px + env(safe-area-inset-top));
       padding-bottom: 14px;
@@ -218,7 +217,7 @@
 
     textarea {
       width: 100%;
-      min-height: 84px;
+      min-height: 92px;
       background: #0f172a;
       border: 1px solid var(--card-border);
       border-radius: 12px;
@@ -380,10 +379,10 @@
 
       <div class="transcript-box">
         <div class="box-header">
-          <span>📝 補充文字備註（直接錄音時可留空）</span>
-          <span id="audioAttachBadge" style="color: var(--accent); display: none;">● 音檔已就緒可送出</span>
+          <span>📝 語音辨識內容（可手動修改）</span>
+          <span id="audioAttachBadge" style="color: var(--accent); display: none;">● 音檔已就緒</span>
         </div>
-        <textarea id="transcriptInput" placeholder="直接按上方綠色麥克風錄音即可送出；也可在此手動打字或用鍵盤麥克風輸入。"></textarea>
+        <textarea id="transcriptInput" placeholder="按下綠色麥克風講話，文字會即時出現在這裡..."></textarea>
         <div class="action-row">
           <button class="btn btn-secondary" onclick="clearInput()">清除重來</button>
           <button id="sendBtn" class="btn btn-primary" onclick="submitCommand()">🚀 送出指令寫入</button>
@@ -467,6 +466,8 @@
     let audioChunks = [];
     let recordedAudioBase64 = null;
     let recordedMimeType = 'audio/mp4';
+    let recognition = null;
+    let baseTextBeforeSpeech = '';
 
     window.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
@@ -503,6 +504,54 @@
       showFeedback('設定已儲存！', false);
     }
 
+    // 每次錄音建立全新 SpeechRecognition 實例，避免 iOS 第二次卡死
+    function startFreshSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) return;
+      try {
+        if (recognition) {
+          try { recognition.abort(); } catch (e) {}
+        }
+        recognition = new SpeechRecognition();
+        recognition.lang = 'zh-TW';
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        baseTextBeforeSpeech = document.getElementById('transcriptInput').value;
+        if (baseTextBeforeSpeech && !baseTextBeforeSpeech.endsWith(' ')) {
+          baseTextBeforeSpeech += ' ';
+        }
+        let sessionFinal = '';
+
+        recognition.onresult = (event) => {
+          let interim = '';
+          for (let i = event.resultIndex; i < event.results.length; ++i) {
+            if (event.results[i].isFinal) {
+              sessionFinal += event.results[i][0].transcript;
+            } else {
+              interim += event.results[i][0].transcript;
+            }
+          }
+          document.getElementById('transcriptInput').value = baseTextBeforeSpeech + sessionFinal + interim;
+        };
+
+        recognition.onerror = () => {};
+        recognition.start();
+      } catch (e) {}
+    }
+
+    // 安全穩定的 ArrayBuffer 轉 Base64（取代易在 iOS 吐空字串的 FileReader）
+    async function blobToCleanBase64(blob) {
+      const buffer = await blob.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+      }
+      return btoa(binary);
+    }
+
     async function toggleRecording() {
       if (!isRecording) {
         await startRecording();
@@ -513,7 +562,6 @@
 
     async function startRecording() {
       try {
-        // 專注純淨錄製高音質音檔，不與 iOS SpeechRecognition 搶占音訊通道
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         audioChunks = [];
         recordedAudioBase64 = null;
@@ -531,34 +579,43 @@
           if (e.data && e.data.size > 0) audioChunks.push(e.data);
         };
 
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(audioChunks, { type: recordedMimeType });
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            recordedAudioBase64 = reader.result.split(',')[1];
+        mediaRecorder.onstop = async () => {
+          try {
+            const blob = new Blob(audioChunks, { type: recordedMimeType });
+            if (blob.size > 0) {
+              recordedAudioBase64 = await blobToCleanBase64(blob);
+            }
+          } catch (e) {
+            console.error('Audio encode error:', e);
+          } finally {
             isEncodingAudio = false;
             const sendBtn = document.getElementById('sendBtn');
             sendBtn.disabled = false;
             sendBtn.textContent = '🚀 送出指令寫入';
-            document.getElementById('audioAttachBadge').style.display = 'inline';
-            document.getElementById('statusHint').textContent = '✅ 音檔已打包完成，請按「送出指令寫入」';
+            if (recordedAudioBase64 && recordedAudioBase64.length > 50) {
+              document.getElementById('audioAttachBadge').style.display = 'inline';
+              document.getElementById('statusHint').textContent = '✅ 語音與音檔皆已就緒，請按「送出指令寫入」';
+            } else {
+              document.getElementById('statusHint').textContent = '✅ 請確認上方文字框內容後按「送出指令寫入」';
+            }
+            stream.getTracks().forEach(track => track.stop());
             if (window._pendingAutoSubmit) {
               window._pendingAutoSubmit = false;
               submitCommand();
             }
-          };
-          reader.readAsDataURL(blob);
-          stream.getTracks().forEach(track => track.stop());
+          }
         };
 
         mediaRecorder.start(250);
+        startFreshSpeechRecognition();
+
         isRecording = true;
         remainingSeconds = MAX_RECORD_SECONDS;
         updateTimerUI();
         document.getElementById('micWrapper').classList.add('active');
         document.getElementById('micBtn').classList.add('recording');
         document.getElementById('micBtnLabel').textContent = '點擊停止';
-        document.getElementById('statusHint').textContent = '🔴 正在錄音中... 講完請按紅色按鈕停止';
+        document.getElementById('statusHint').textContent = '🔴 正在聆聽中... 講完請按紅色按鈕停止';
 
         timerInterval = setInterval(() => {
           remainingSeconds--;
@@ -580,13 +637,20 @@
       window._pendingAutoSubmit = autoSubmit;
       clearInterval(timerInterval);
 
+      if (recognition) {
+        try { recognition.stop(); } catch (e) {}
+      }
+
       const sendBtn = document.getElementById('sendBtn');
       sendBtn.disabled = true;
-      sendBtn.textContent = '⏳ 音檔打包中...';
-      document.getElementById('statusHint').textContent = '⏳ 正在處理音檔，請稍候 1 秒...';
+      sendBtn.textContent = '⏳ 整理語音中...';
 
       if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
+      } else {
+        isEncodingAudio = false;
+        sendBtn.disabled = false;
+        sendBtn.textContent = '🚀 送出指令寫入';
       }
 
       document.getElementById('micWrapper').classList.remove('active');
@@ -624,13 +688,15 @@
         return;
       }
       if (isEncodingAudio) {
-        showFeedback('音檔還在打包中，請等 1 秒再按送出！', true);
+        showFeedback('語音還在整理中，請等 1 秒再按送出！', true);
         return;
       }
 
       const text = document.getElementById('transcriptInput').value.trim();
-      if (!text && !recordedAudioBase64) {
-        showFeedback('尚未偵測到錄音檔或文字，請先點擊綠色麥克風錄音！', true);
+      const hasValidAudio = recordedAudioBase64 && recordedAudioBase64.length > 50;
+
+      if (!text && !hasValidAudio) {
+        showFeedback('尚未偵測到有效語音或文字，請重新點擊綠色麥克風講話（或直接在文字框輸入）！', true);
         return;
       }
 
@@ -645,7 +711,7 @@
 
       const sendBtn = document.getElementById('sendBtn');
       sendBtn.disabled = true;
-      sendBtn.textContent = '⏳ AI 聽寫與寫入中...';
+      sendBtn.textContent = '⏳ AI 寫入試算表中...';
 
       try {
         const payload = {
@@ -654,7 +720,7 @@
           operator: operator,
           source: 'iPhone_PWA',
           text: text,
-          audioBase64: recordedAudioBase64,
+          audioBase64: hasValidAudio ? recordedAudioBase64 : null,
           mimeType: recordedMimeType
         };
 
