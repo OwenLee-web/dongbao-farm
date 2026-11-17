@@ -1,811 +1,209 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="東寶牧場助手" />
-  <meta name="theme-color" content="#0f172a" />
-  <title>東寶牧場｜現場語音作業系統</title>
-  <link rel="manifest" href="manifest.json" />
-  <style>
-    :root {
-      --bg-dark: #0b1120;
-      --card-bg: #1e293b;
-      --card-border: #334155;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent: #10b981;
-      --accent-glow: rgba(16, 185, 129, 0.35);
-      --danger: #ef4444;
-      --danger-glow: rgba(239, 68, 68, 0.4);
-      --warning: #f59e0b;
-      --info: #38bdf8;
+const SPREADSHEET_ID = "1Xf-kjrGnMpdNgJmOLb-VqTWFlsxrTqBcrDtxx19klyw";
+const GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+
+function doGet(e) {
+  return HtmlService.createHtmlOutputFromFile("index")
+    .setTitle("東寶牧場 | 現場作業系統")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no");
+}
+
+function doPost(e) {
+  try {
+    const rawData = e.postData ? e.postData.contents : "{}";
+    const req = JSON.parse(rawData);
+    const result = processVoiceCommand(req);
+
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: "ERROR",
+        replyText: "系統處理發生錯誤：" + err.message
+      }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function processVoiceCommand(req) {
+  const transcript = (req.transcript || "").trim();
+  const dateStr = req.date || Utilities.formatDate(new Date(), "Asia/Taipei", "yyyy-MM-dd");
+  const operator = req.operator || "李宥緯";
+
+  // 情境 A：正在等待現場人員確認前一輪的 AI 反問（例如：「是 C20 即日起就要限飼三天嗎？」）
+  if (req.awaitingConfirmation && req.pendingActionPayload) {
+    const isYes = /^(對|好|是|沒錯|可以|確定|嗯|對啊|對的)/.test(transcript);
+    const isNo = /^(不對|不是|取消|不要|錯了)/.test(transcript);
+
+    if (isNo) {
+      return {
+        status: "CANCELLED",
+        replyText: "好的，已取消這筆操作，請重新說出正確的欄位或天數。"
+      };
     }
 
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    // 支援回答「對」或直接修改天數（例如「改五天」）
+    const pending = req.pendingActionPayload;
+    const customDaysMatch = transcript.match(/(\d+|一|二|兩|三|四|五|六|七)天/);
+    if (customDaysMatch) {
+      pending.days = chineseNumToInt(customDaysMatch[1]);
     }
 
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      padding-bottom: calc(76px + env(safe-area-inset-bottom));
+    if (isYes || customDaysMatch) {
+      executeWriteToSheets(pending, dateStr, operator);
+      return {
+        status: "CONFIRMED_AND_SAVED",
+        summary: `${pending.pen} ${pending.markType}（限飼 ${pending.days} 天，預計 ${pending.restoreDate} 恢復）`,
+        replyText: `好的，立刻為您寫入，並會在${intToChineseNum(pending.days)}天內提示在每日檢核表及收班工作日誌。`
+      };
     }
+  }
 
-    header {
-      padding-top: calc(16px + env(safe-area-inset-top));
-      padding-bottom: 14px;
-      padding-left: 18px;
-      padding-right: 18px;
-      background: rgba(15, 23, 42, 0.95);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--card-border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 50;
-    }
+  // 情境 B：新指令進來，先檢查「限飼／飼料減半」規則（檢核規則：限飼要有固定天數，預設 3 天並反問確認）
+  const restrictMatch = transcript.match(/([A-Za-z]\d+[前後]?|[PNXYQ]\d+).*(減半|限飼|減量|太胖)/i);
+  if (restrictMatch) {
+    const pen = restrictMatch[1].toUpperCase();
+    const daysMatch = transcript.match(/(\d+|一|二|兩|三|四|五|六|七)天/);
+    const days = daysMatch ? chineseNumToInt(daysMatch[1]) : 3; // 預設 3 天
+    const markType = transcript.includes("發情") ? "發情減量" : (transcript.includes("配種") ? "配種限飼" : "過胖減量");
+    const restoreDate = addDays(dateStr, days);
 
-    .brand { display: flex; flex-direction: column; }
-    .brand h1 { margin: 0; font-size: 17px; font-weight: 700; letter-spacing: 0.5px; color: var(--text-main); }
-    .brand span { font-size: 11px; color: var(--accent); margin-top: 3px; }
-    .header-actions { display: flex; gap: 8px; align-items: center; }
-
-    .operator-badge {
-      background: #0f172a;
-      border: 1px solid var(--card-border);
-      color: var(--info);
-      padding: 6px 10px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .settings-btn {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      color: var(--text-main);
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-      cursor: pointer;
-    }
-
-    main { flex: 1; padding: 16px; max-width: 540px; width: 100%; margin: 0 auto; }
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
-
-    .recorder-card {
-      background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
-      border: 1px solid var(--card-border);
-      border-radius: 24px;
-      padding: 22px 18px;
-      text-align: center;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-      margin-bottom: 16px;
-    }
-
-    .limit-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: rgba(56, 189, 248, 0.12);
-      border: 1px solid rgba(56, 189, 248, 0.35);
-      color: var(--info);
-      font-size: 13px;
-      font-weight: 600;
-      padding: 6px 14px;
-      border-radius: 999px;
-      margin-bottom: 12px;
-    }
-
-    .timer-display {
-      font-size: 52px;
-      font-weight: 800;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 2px;
-      margin: 4px 0 8px;
-      color: var(--text-main);
-    }
-
-    .timer-display.recording { color: var(--accent); }
-    .timer-display.warning { color: var(--danger); animation: pulseText 1s infinite; }
-
-    @keyframes pulseText { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
-
-    .status-hint { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; min-height: 20px; }
-
-    .mic-wrapper {
-      position: relative;
-      width: 120px;
-      height: 120px;
-      margin: 0 auto 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .mic-ring {
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background: var(--accent-glow);
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .mic-wrapper.active .mic-ring {
-      background: var(--danger-glow);
-      animation: ripple 1.5s infinite ease-out;
-    }
-
-    @keyframes ripple {
-      0% { opacity: 0.85; transform: scale(0.95); }
-      100% { opacity: 0; transform: scale(1.45); }
-    }
-
-    .mic-btn {
-      position: relative;
-      width: 100px;
-      height: 100px;
-      border-radius: 50%;
-      border: none;
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      box-shadow: 0 8px 24px var(--accent-glow);
-      z-index: 2;
-    }
-
-    .mic-btn.recording {
-      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-      box-shadow: 0 8px 28px var(--danger-glow);
-    }
-
-    .mic-btn svg { width: 36px; height: 36px; fill: currentColor; }
-    .mic-btn span { font-size: 11px; font-weight: 700; margin-top: 4px; }
-
-    .quick-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
-    .q-tag {
-      background: rgba(148, 163, 184, 0.12);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      color: #cbd5e1;
-      font-size: 12px;
-      padding: 5px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    .transcript-box {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 18px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-
-    .box-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    textarea {
-      width: 100%;
-      min-height: 92px;
-      background: #0f172a;
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      color: var(--text-main);
-      padding: 12px;
-      font-size: 16px;
-      line-height: 1.5;
-      resize: vertical;
-    }
-
-    .action-row { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; margin-top: 12px; }
-    .btn {
-      border: none;
-      border-radius: 12px;
-      padding: 13px 16px;
-      font-size: 15px;
-      font-weight: 700;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-    }
-
-    .btn-secondary { background: #334155; color: var(--text-main); }
-    .btn-primary { background: var(--accent); color: #052e16; }
-    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-
-    .result-card {
-      background: rgba(16, 185, 129, 0.12);
-      border: 1px solid rgba(16, 185, 129, 0.45);
-      border-radius: 14px;
-      padding: 14px;
-      font-size: 14px;
-      line-height: 1.5;
-      display: none;
-      margin-bottom: 16px;
-    }
-
-    .result-card.error {
-      background: rgba(239, 68, 68, 0.12);
-      border-color: rgba(239, 68, 68, 0.45);
-      color: #fca5a5;
-    }
-
-    .section-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 18px;
-      padding: 16px;
-      margin-bottom: 14px;
-    }
-
-    .section-title { font-size: 16px; font-weight: 700; margin: 0 0 12px; display: flex; justify-content: space-between; align-items: center; }
-    .check-item { display: flex; align-items: flex-start; gap: 10px; padding: 11px 0; border-bottom: 1px solid rgba(51, 65, 85, 0.6); }
-    .check-item:last-child { border-bottom: none; }
-    .check-item input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; accent-color: var(--accent); }
-
-    .badge { font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 600; }
-    .badge-warn { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-    .badge-info { background: rgba(56, 189, 248, 0.2); color: #7dd3fc; }
-    .badge-danger { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
-
-    nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: rgba(15, 23, 42, 0.96);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-top: 1px solid var(--card-border);
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      padding-bottom: env(safe-area-inset-bottom);
-      z-index: 60;
-    }
-
-    .nav-btn {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      padding: 10px 4px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .nav-btn.active { color: var(--accent); }
-    .nav-btn span.icon { font-size: 20px; }
-
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.72);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 100;
-    }
-
-    .modal-backdrop.open { display: flex; }
-    .modal { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 20px; padding: 20px; width: 100%; max-width: 420px; }
-    .modal h3 { margin: 0 0 14px; font-size: 17px; }
-    .form-group { margin-bottom: 14px; }
-    .form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-    .form-group input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--card-border); background: #0f172a; color: var(--text-main); font-size: 14px; }
-  </style>
-</head>
-<body>
-
-  <header>
-    <div class="brand">
-      <h1>東寶牧場｜現場作業系統</h1>
-      <span id="todayDateDisplay">載入日期中...</span>
-    </div>
-    <div class="header-actions">
-      <div class="operator-badge" id="operatorBadge" onclick="openSettings()">👤 李宥緯</div>
-      <button class="settings-btn" onclick="openSettings()" title="系統設定">⚙️</button>
-    </div>
-  </header>
-
-  <main>
-    <section id="tab-voice" class="tab-panel active">
-      <div class="recorder-card">
-        <div class="limit-pill">⏱️ 最多錄音 3 分鐘（時間到自動送出）</div>
-        <div id="timerDisplay" class="timer-display">03:00</div>
-        <div id="statusHint" class="status-hint">點擊下方麥克風開始口述現場指令</div>
-
-        <div id="micWrapper" class="mic-wrapper">
-          <div class="mic-ring"></div>
-          <button id="micBtn" class="mic-btn" onclick="toggleRecording()">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/>
-            </svg>
-            <span id="micBtnLabel">點擊錄音</span>
-          </button>
-        </div>
-
-        <div class="quick-tags">
-          <span class="q-tag" onclick="insertPrefix('移欄，')">移欄</span>
-          <span class="q-tag" onclick="insertPrefix('去勢免疫，')">去勢免疫</span>
-          <span class="q-tag" onclick="insertPrefix('配種，')">配種</span>
-          <span class="q-tag" onclick="insertPrefix('巡檢異常，')">巡檢異常</span>
-          <span class="q-tag" onclick="insertPrefix('採購支出，簽帳')">採購(簽帳)</span>
-          <span class="q-tag" onclick="insertPrefix('採購支出，零用金')">採購(零用金)</span>
-          <span class="q-tag" onclick="insertPrefix('設備報修，')">設備報修</span>
-          <span class="q-tag" onclick="insertPrefix('設備修復，')">設備修復</span>
-          <span class="q-tag" onclick="insertPrefix('環境盤點，')">環境盤點</span>
-        </div>
-      </div>
-
-      <div id="resultCard" class="result-card"></div>
-
-      <div class="transcript-box">
-        <div class="box-header">
-          <span>📝 語音辨識內容（可手動修改）</span>
-          <span id="audioAttachBadge" style="color: var(--accent); display: none;">● 音檔已就緒</span>
-        </div>
-        <textarea id="transcriptInput" placeholder="按下綠色麥克風講話，文字會即時出現在這裡..."></textarea>
-        <div class="action-row">
-          <button class="btn btn-secondary" onclick="clearInput()">清除重來</button>
-          <button id="sendBtn" class="btn btn-primary" onclick="submitCommand()">🚀 送出指令寫入</button>
-        </div>
-      </div>
-    </section>
-
-    <section id="tab-checklist" class="tab-panel">
-      <div class="section-card">
-        <div class="section-title">
-          <span>📋 今日必辦檢核表</span>
-          <button class="q-tag" onclick="fetchChecklist()">🔄 重新整理</button>
-        </div>
-        <div id="checklistContainer">
-          <p style="font-size:13px; color:var(--text-muted);">點擊右上角「重新整理」從雲端拉取今日最新檢核表。</p>
-        </div>
-      </div>
-    </section>
-
-    <section id="tab-dailylog" class="tab-panel">
-      <div class="section-card">
-        <div class="section-title">
-          <span>📄 收班固定 A4 工作日誌</span>
-          <span class="badge badge-info">嚴格日期隔離</span>
-        </div>
-        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
-          系統僅抓取<strong>今日（<span id="logDateLabel"></span>）</strong>之事件簿與環境飼料存量，套用標準 A4 模板生成固定版面 PDF。
-        </p>
-        <button class="btn btn-primary" style="width: 100%; margin-top: 8px;" onclick="generateA4Log()">
-          📑 檢查今日完整性並生成 A4 日誌 PDF
-        </button>
-        <div id="logResultBox" style="margin-top: 14px; font-size: 13px; line-height: 1.6;"></div>
-      </div>
-    </section>
-  </main>
-
-  <nav>
-    <button class="nav-btn active" onclick="switchTab('voice', this)">
-      <span class="icon">🎙️</span>
-      <span>語音指令</span>
-    </button>
-    <button class="nav-btn" onclick="switchTab('checklist', this)">
-      <span class="icon">📋</span>
-      <span>每日檢核表</span>
-    </button>
-    <button class="nav-btn" onclick="switchTab('dailylog', this)">
-      <span class="icon">📄</span>
-      <span>A4 日誌</span>
-    </button>
-  </nav>
-
-  <div id="settingsModal" class="modal-backdrop">
-    <div class="modal">
-      <h3>⚙️ 系統與後端 API 設定</h3>
-      <div class="form-group">
-        <label>當前操作人員</label>
-        <input type="text" id="operatorInput" placeholder="例如：李宥緯" />
-      </div>
-      <div class="form-group">
-        <label>Google Apps Script 後端 Web App URL</label>
-        <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/..../exec" />
-      </div>
-      <div class="form-group">
-        <label>安全驗證金鑰（API Token）</label>
-        <input type="password" id="apiTokenInput" placeholder="dongbao2026" />
-      </div>
-      <div class="action-row">
-        <button class="btn btn-secondary" onclick="closeSettings()">取消</button>
-        <button class="btn btn-primary" onclick="saveSettings()">儲存設定</button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const MAX_RECORD_SECONDS = 180;
-    let remainingSeconds = MAX_RECORD_SECONDS;
-    let timerInterval = null;
-    let isRecording = false;
-    let isEncodingAudio = false;
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let recordedAudioBase64 = null;
-    let recordedMimeType = 'audio/mp4';
-    let recognition = null;
-    let baseTextBeforeSpeech = '';
-
-    window.addEventListener('DOMContentLoaded', () => {
-      const now = new Date();
-      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      document.getElementById('todayDateDisplay').textContent = `今日日期：${todayStr}（僅限當日資料）`;
-      document.getElementById('logDateLabel').textContent = todayStr;
-
-      const savedOp = localStorage.getItem('dongbao_operator') || '李宥緯';
-      document.getElementById('operatorBadge').textContent = `👤 ${savedOp}`;
-      document.getElementById('operatorInput').value = savedOp;
-      document.getElementById('gasUrlInput').value = localStorage.getItem('dongbao_gas_url') || '';
-      document.getElementById('apiTokenInput').value = localStorage.getItem('dongbao_api_token') || '';
-    });
-
-    function switchTab(tabName, btnEl) {
-      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(`tab-${tabName}`).classList.add('active');
-      btnEl.classList.add('active');
-      if (tabName === 'checklist') fetchChecklist();
-    }
-
-    function openSettings() { document.getElementById('settingsModal').classList.add('open'); }
-    function closeSettings() { document.getElementById('settingsModal').classList.remove('open'); }
-    function saveSettings() {
-      const op = document.getElementById('operatorInput').value.trim() || '李宥緯';
-      const url = document.getElementById('gasUrlInput').value.trim();
-      const token = document.getElementById('apiTokenInput').value.trim();
-      localStorage.setItem('dongbao_operator', op);
-      localStorage.setItem('dongbao_gas_url', url);
-      localStorage.setItem('dongbao_api_token', token);
-      document.getElementById('operatorBadge').textContent = `👤 ${op}`;
-      closeSettings();
-      showFeedback('設定已儲存！', false);
-    }
-
-    // 每次錄音建立全新 SpeechRecognition 實例，避免 iOS 第二次卡死
-    function startFreshSpeechRecognition() {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) return;
-      try {
-        if (recognition) {
-          try { recognition.abort(); } catch (e) {}
+    // 若使用者沒有明確講出天數，或需要二次語音確認，主動反問
+    if (!daysMatch) {
+      return {
+        status: "NEED_CONFIRMATION",
+        summary: `${pen} 擬設定「${markType}」共 ${days} 天`,
+        replyText: `是 ${pen} 即日起就要限飼${intToChineseNum(days)}天嗎？`,
+        pendingActionPayload: {
+          actionType: "FEED_RESTRICTION",
+          pen: pen,
+          markType: markType,
+          days: days,
+          restoreDate: restoreDate,
+          rawText: transcript
         }
-        recognition = new SpeechRecognition();
-        recognition.lang = 'zh-TW';
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        baseTextBeforeSpeech = document.getElementById('transcriptInput').value;
-        if (baseTextBeforeSpeech && !baseTextBeforeSpeech.endsWith(' ')) {
-          baseTextBeforeSpeech += ' ';
-        }
-        let sessionFinal = '';
-
-        recognition.onresult = (event) => {
-          let interim = '';
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            if (event.results[i].isFinal) {
-              sessionFinal += event.results[i][0].transcript;
-            } else {
-              interim += event.results[i][0].transcript;
-            }
-          }
-          document.getElementById('transcriptInput').value = baseTextBeforeSpeech + sessionFinal + interim;
-        };
-
-        recognition.onerror = () => {};
-        recognition.start();
-      } catch (e) {}
+      };
     }
+  }
 
-    // 安全穩定的 ArrayBuffer 轉 Base64（取代易在 iOS 吐空字串的 FileReader）
-    async function blobToCleanBase64(blob) {
-      const buffer = await blob.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      const chunkSize = 0x8000;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
-      }
-      return btoa(binary);
+  // 情境 C：其他常規現場指令（呼叫 Gemini 結構化解析並直接寫入《事件簿》）
+  const parsed = parseWithGemini(transcript, req.tag, dateStr);
+  writeEventRow(dateStr, parsed.type, parsed.pen, parsed.newPen, parsed.target, parsed.headCount, parsed.record, operator);
+
+  return {
+    status: "SAVED",
+    summary: parsed.record,
+    replyText: `好的，已為您記錄：${parsed.shortConfirm}，並列入今日收班工作日誌。`
+  };
+}
+
+// 寫入限飼設定至《欄位主檔》、《今日待辦》與《事件簿》
+function executeWriteToSheets(pending, dateStr, operator) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const restoreDate = addDays(dateStr, pending.days);
+
+  // 1. 更新《欄位主檔》
+  const masterSheet = ss.getSheetByName("欄位主檔");
+  const masterData = masterSheet.getDataRange().getValues();
+  for (let i = 1; i < masterData.length; i++) {
+    if (String(masterData[i][0]).trim().toUpperCase() === pending.pen) {
+      masterSheet.getRange(i + 1, 18).setValue(pending.markType); // R欄：飼料減量標記
+      masterSheet.getRange(i + 1, 19).setValue(restoreDate);      // S欄：預計恢復正常飼料日
+      const oldNote = masterData[i][19] || "";
+      masterSheet.getRange(i + 1, 20).setValue(`${oldNote}；${dateStr} 語音設定${pending.markType} ${pending.days} 天（預計 ${restoreDate} 恢復）`);
+      break;
     }
+  }
 
-    async function toggleRecording() {
-      if (!isRecording) {
-        await startRecording();
-      } else {
-        stopRecording(false);
-      }
-    }
+  // 2. 寫入《今日待辦》作為每日檢核提醒
+  const todoSheet = ss.getSheetByName("今日待辦");
+  const todoId = `UNMARK-${pending.pen}-${restoreDate.replace(/-/g, "")}`;
+  todoSheet.appendRow([
+    todoId,
+    restoreDate,
+    `${pending.pen} 母豬 1 頭`,
+    pending.pen,
+    `【撤除減量標記】${pending.markType}滿 ${pending.days} 天，檢核體態並提醒撤除減量標記、恢復正常飼料量`,
+    "追蹤中",
+    "",
+    `${dateStr} 語音指令設定（${pending.rawText}）`
+  ]);
 
-    async function startRecording() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks = [];
-        recordedAudioBase64 = null;
-        isEncodingAudio = false;
-        document.getElementById('audioAttachBadge').style.display = 'none';
-        document.getElementById('resultCard').style.display = 'none';
+  // 3. 寫入《事件簿》
+  writeEventRow(
+    dateStr,
+    "飼料與標記調整",
+    pending.pen,
+    "",
+    "母豬",
+    1,
+    `${dateStr} ${pending.pen} 設定「${pending.markType}」${pending.days} 天（預計 ${restoreDate} 恢復正常餵飼；操作人：${operator}）`,
+    operator
+  );
+}
 
-        const options = MediaRecorder.isTypeSupported('audio/mp4')
-          ? { mimeType: 'audio/mp4' }
-          : (MediaRecorder.isTypeSupported('audio/webm') ? { mimeType: 'audio/webm' } : {});
-        mediaRecorder = new MediaRecorder(stream, options);
-        recordedMimeType = mediaRecorder.mimeType || 'audio/mp4';
+function writeEventRow(dateStr, type, pen, newPen, target, headCount, record, operator) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const eventSheet = ss.getSheetByName("事件簿");
+  const eventId = `VOICE-${dateStr.replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
+  eventSheet.appendRow([
+    eventId,
+    dateStr,
+    dateStr,
+    type,
+    pen,
+    newPen,
+    target,
+    headCount,
+    record,
+    "收班列入",
+    "已完成",
+    "",
+    dateStr,
+    `語音系統即時寫入｜${operator}`
+  ]);
+}
 
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) audioChunks.push(e.data);
-        };
+function parseWithGemini(transcript, tag, dateStr) {
+  if (!GEMINI_API_KEY) {
+    return {
+      type: tag || "巡檢異常",
+      pen: "",
+      newPen: "",
+      target: "豬隻",
+      headCount: "",
+      record: transcript,
+      shortConfirm: transcript
+    };
+  }
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const prompt = `你是東寶牧場現場資料解析器。將以下現場語音轉為 JSON（不要 markdown）：
+{"type":"類型","pen":"原欄號","newPen":"新欄號","target":"對象","headCount":數字或空字串,"record":"完整正規化中文紀錄(P轉分娩舍第X欄、N轉保三舍第X欄)","shortConfirm":"15字內語音確認摘要"}
+語音內容：「${transcript}」，快捷標籤：「${tag}」，日期：「${dateStr}」。`;
 
-        mediaRecorder.onstop = async () => {
-          try {
-            const blob = new Blob(audioChunks, { type: recordedMimeType });
-            if (blob.size > 0) {
-              recordedAudioBase64 = await blobToCleanBase64(blob);
-            }
-          } catch (e) {
-            console.error('Audio encode error:', e);
-          } finally {
-            isEncodingAudio = false;
-            const sendBtn = document.getElementById('sendBtn');
-            sendBtn.disabled = false;
-            sendBtn.textContent = '🚀 送出指令寫入';
-            if (recordedAudioBase64 && recordedAudioBase64.length > 50) {
-              document.getElementById('audioAttachBadge').style.display = 'inline';
-              document.getElementById('statusHint').textContent = '✅ 語音與音檔皆已就緒，請按「送出指令寫入」';
-            } else {
-              document.getElementById('statusHint').textContent = '✅ 請確認上方文字框內容後按「送出指令寫入」';
-            }
-            stream.getTracks().forEach(track => track.stop());
-            if (window._pendingAutoSubmit) {
-              window._pendingAutoSubmit = false;
-              submitCommand();
-            }
-          }
-        };
+  const res = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  });
+  const json = JSON.parse(res.getContentText());
+  const text = json.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
+  return JSON.parse(text);
+}
 
-        mediaRecorder.start(250);
-        startFreshSpeechRecognition();
+function addDays(dateStr, days) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + days);
+  return Utilities.formatDate(d, "Asia/Taipei", "yyyy-MM-dd");
+}
 
-        isRecording = true;
-        remainingSeconds = MAX_RECORD_SECONDS;
-        updateTimerUI();
-        document.getElementById('micWrapper').classList.add('active');
-        document.getElementById('micBtn').classList.add('recording');
-        document.getElementById('micBtnLabel').textContent = '點擊停止';
-        document.getElementById('statusHint').textContent = '🔴 正在聆聽中... 講完請按紅色按鈕停止';
+function chineseNumToInt(str) {
+  const map = { "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7 };
+  return map[str] || parseInt(str, 10) || 3;
+}
 
-        timerInterval = setInterval(() => {
-          remainingSeconds--;
-          updateTimerUI();
-          if (remainingSeconds <= 0) {
-            stopRecording(true);
-          }
-        }, 1000);
-
-      } catch (err) {
-        showFeedback('無法開啟麥克風：請確認在 iPhone「設定 > Safari > 麥克風」允許存取。', true);
-      }
-    }
-
-    function stopRecording(autoSubmit) {
-      if (!isRecording) return;
-      isRecording = false;
-      isEncodingAudio = true;
-      window._pendingAutoSubmit = autoSubmit;
-      clearInterval(timerInterval);
-
-      if (recognition) {
-        try { recognition.stop(); } catch (e) {}
-      }
-
-      const sendBtn = document.getElementById('sendBtn');
-      sendBtn.disabled = true;
-      sendBtn.textContent = '⏳ 整理語音中...';
-
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      } else {
-        isEncodingAudio = false;
-        sendBtn.disabled = false;
-        sendBtn.textContent = '🚀 送出指令寫入';
-      }
-
-      document.getElementById('micWrapper').classList.remove('active');
-      document.getElementById('micBtn').classList.remove('recording');
-      document.getElementById('micBtnLabel').textContent = '點擊錄音';
-      document.getElementById('timerDisplay').className = 'timer-display';
-    }
-
-    function updateTimerUI() {
-      const mins = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
-      const secs = String(remainingSeconds % 60).padStart(2, '0');
-      const el = document.getElementById('timerDisplay');
-      el.textContent = `${mins}:${secs}`;
-      el.className = remainingSeconds <= 30 ? 'timer-display warning' : 'timer-display recording';
-    }
-
-    function insertPrefix(prefix) {
-      const box = document.getElementById('transcriptInput');
-      box.value = prefix + box.value;
-      box.focus();
-    }
-
-    function clearInput() {
-      document.getElementById('transcriptInput').value = '';
-      recordedAudioBase64 = null;
-      isEncodingAudio = false;
-      document.getElementById('audioAttachBadge').style.display = 'none';
-      document.getElementById('timerDisplay').textContent = '03:00';
-      document.getElementById('statusHint').textContent = '點擊下方麥克風開始口述現場指令';
-    }
-
-    async function submitCommand() {
-      if (isRecording) {
-        showFeedback('請先按紅色按鈕停止錄音再送出！', true);
-        return;
-      }
-      if (isEncodingAudio) {
-        showFeedback('語音還在整理中，請等 1 秒再按送出！', true);
-        return;
-      }
-
-      const text = document.getElementById('transcriptInput').value.trim();
-      const hasValidAudio = recordedAudioBase64 && recordedAudioBase64.length > 50;
-
-      if (!text && !hasValidAudio) {
-        showFeedback('尚未偵測到有效語音或文字，請重新點擊綠色麥克風講話（或直接在文字框輸入）！', true);
-        return;
-      }
-
-      const gasUrl = localStorage.getItem('dongbao_gas_url');
-      const token = localStorage.getItem('dongbao_api_token') || '';
-      const operator = localStorage.getItem('dongbao_operator') || '李宥緯';
-
-      if (!gasUrl) {
-        showFeedback('尚未綁定 GAS 網址，請先點右上角 ⚙️ 貼上後端網址！', true);
-        return;
-      }
-
-      const sendBtn = document.getElementById('sendBtn');
-      sendBtn.disabled = true;
-      sendBtn.textContent = '⏳ AI 寫入試算表中...';
-
-      try {
-        const payload = {
-          action: 'ingest_command',
-          token: token,
-          operator: operator,
-          source: 'iPhone_PWA',
-          text: text,
-          audioBase64: hasValidAudio ? recordedAudioBase64 : null,
-          mimeType: recordedMimeType
-        };
-
-        const res = await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-
-        if (data.status === 'ok') {
-          showFeedback(`✅ <strong>寫入成功！</strong><br>${data.summary}`, false);
-          clearInput();
-        } else {
-          showFeedback(`⚠️ 後端回報異常：${data.message || '未知錯誤'}`, true);
-        }
-      } catch (err) {
-        showFeedback(`❌ 連線失敗：${err.message}`, true);
-      } finally {
-        sendBtn.disabled = false;
-        sendBtn.textContent = '🚀 送出指令寫入';
-      }
-    }
-
-    function showFeedback(htmlMsg, isError) {
-      const card = document.getElementById('resultCard');
-      card.innerHTML = htmlMsg;
-      card.className = isError ? 'result-card error' : 'result-card';
-      card.style.display = 'block';
-    }
-
-    async function fetchChecklist() {
-      const gasUrl = localStorage.getItem('dongbao_gas_url');
-      if (!gasUrl) return;
-      const token = localStorage.getItem('dongbao_api_token') || '';
-      const container = document.getElementById('checklistContainer');
-      container.innerHTML = '<p style="color:var(--text-muted);">⏳ 正在同步今日檢核項目...</p>';
-      try {
-        const res = await fetch(`${gasUrl}?action=get_checklist&token=${encodeURIComponent(token)}`);
-        const data = await res.json();
-        if (data.items && data.items.length > 0) {
-          container.innerHTML = data.items.map((item, idx) => `
-            <div class="check-item">
-              <input type="checkbox" id="dyn_chk_${idx}" />
-              <label for="dyn_chk_${idx}">
-                <span class="badge badge-${item.level || 'info'}">${item.tag}</span>
-                <strong>${item.pen}</strong>：${item.desc}
-              </label>
-            </div>
-          `).join('');
-        } else {
-          container.innerHTML = '<p style="color:var(--accent);">🎉 今日無待處理異常或到期提醒！</p>';
-        }
-      } catch (e) {
-        container.innerHTML = `<p style="color:#fca5a5;">讀取失敗：${e.message}</p>`;
-      }
-    }
-
-    async function generateA4Log() {
-      const gasUrl = localStorage.getItem('dongbao_gas_url');
-      const box = document.getElementById('logResultBox');
-      if (!gasUrl) {
-        box.innerHTML = '<span style="color:#fbbf24;">⚠️ 請先點右上角 ⚙️ 綁定後端網址。</span>';
-        return;
-      }
-      const token = localStorage.getItem('dongbao_api_token') || '';
-      box.innerHTML = '⏳ 正在檢核今日完整性並生成 A4 PDF...';
-      try {
-        const res = await fetch(gasUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ action: 'generate_a4_log', token: token })
-        });
-        const data = await res.json();
-        if (data.status === 'ok') {
-          box.innerHTML = `✅ <strong>${data.title}</strong> 已生成！<br><a href="${data.pdfUrl}" target="_blank" style="color:var(--accent); font-weight:700;">👉 點此開啟／下載標準 A4 PDF</a>`;
-        } else if (data.status === 'missing_fields') {
-          box.innerHTML = `⚠️ <strong>資料尚有缺漏：</strong><br>• ${data.missing.join('<br>• ')}`;
-        } else {
-          box.innerHTML = `❌ 生成失敗：${data.message}`;
-        }
-      } catch (e) {
-        box.innerHTML = `❌ 連線錯誤：${e.message}`;
-      }
-    }
-  </script>
-</body>
-</html>
+function intToChineseNum(num) {
+  const map = { 1: "一", 2: "兩", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七" };
+  return map[num] || String(num);
+}
