@@ -1,209 +1,919 @@
-const SPREADSHEET_ID = "1Xf-kjrGnMpdNgJmOLb-VqTWFlsxrTqBcrDtxx19klyw";
-const GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>東寶牧場 | 現場作業系統</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --green-main: #10b981;
+      --green-dark: #059669;
+      --blue-listen: #3b82f6;
+      --amber-speak: #f59e0b;
+      --red-alert: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      padding: 0 0 76px 0;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    }
 
-function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile("index")
-    .setTitle("東寶牧場 | 現場作業系統")
-    .addMetaTag("viewport", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no");
-}
+    /* 頂部標題列 */
+    .header {
+      padding: 14px 16px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--card-border);
+      background: #0b1120;
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .header-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .header-sub { font-size: 12px; color: var(--green-main); margin-top: 2px; }
+    .operator-badge {
+      background: #1e293b;
+      border: 1px solid #334155;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: #cbd5e1;
+    }
 
-function doPost(e) {
-  try {
-    const rawData = e.postData ? e.postData.contents : "{}";
-    const req = JSON.parse(rawData);
-    const result = processVoiceCommand(req);
+    .container { padding: 12px 14px; max-width: 540px; margin: 0 auto; }
 
-    return ContentService
-      .createTextOutput(JSON.stringify(result))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({
-        status: "ERROR",
-        replyText: "系統處理發生錯誤：" + err.message
-      }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+    /* 主控卡片 */
+    .main-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px 14px;
+      text-align: center;
+      margin-bottom: 12px;
+    }
 
-function processVoiceCommand(req) {
-  const transcript = (req.transcript || "").trim();
-  const dateStr = req.date || Utilities.formatDate(new Date(), "Asia/Taipei", "yyyy-MM-dd");
-  const operator = req.operator || "李宥緯";
+    /* 模式切換膠囊 */
+    .mode-switch {
+      display: inline-flex;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 999px;
+      padding: 3px;
+      margin-bottom: 12px;
+    }
+    .mode-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-btn.active {
+      background: var(--green-main);
+      color: #06281e;
+    }
 
-  // 情境 A：正在等待現場人員確認前一輪的 AI 反問（例如：「是 C20 即日起就要限飼三天嗎？」）
-  if (req.awaitingConfirmation && req.pendingActionPayload) {
-    const isYes = /^(對|好|是|沒錯|可以|確定|嗯|對啊|對的)/.test(transcript);
-    const isNo = /^(不對|不是|取消|不要|錯了)/.test(transcript);
+    /* 狀態提示條 */
+    .status-pill {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      color: #6ee7b7;
+      font-size: 13px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+    .status-pill.listening {
+      background: rgba(59, 130, 246, 0.18);
+      border-color: #60a5fa;
+      color: #93c5fd;
+    }
+    .status-pill.speaking {
+      background: rgba(245, 158, 11, 0.18);
+      border-color: #fbbf24;
+      color: #fcd34d;
+    }
 
-    if (isNo) {
-      return {
-        status: "CANCELLED",
-        replyText: "好的，已取消這筆操作，請重新說出正確的欄位或天數。"
+    .timer-display {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      font-variant-numeric: tabular-nums;
+      margin: 4px 0 8px;
+    }
+
+    /* 中央大圓形按鈕（支援聆聽與錄音雙狀態） */
+    .mic-wrapper {
+      position: relative;
+      width: 124px;
+      height: 124px;
+      margin: 10px auto 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pulse-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--green-main);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .mic-wrapper.is-listening .pulse-ring {
+      background: var(--blue-listen);
+      animation: pulse 1.6s infinite ease-out;
+    }
+    .mic-wrapper.is-recording .pulse-ring {
+      background: var(--red-alert);
+      animation: pulse 1.2s infinite ease-out;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.65; }
+      100% { transform: scale(1.45); opacity: 0; }
+    }
+
+    .mic-btn {
+      position: relative;
+      z-index: 2;
+      width: 112px;
+      height: 112px;
+      border-radius: 50%;
+      border: none;
+      background: radial-gradient(circle at 30% 30%, #34d399, #059669);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
+      transition: transform 0.15s, background 0.25s;
+    }
+    .mic-btn:active { transform: scale(0.95); }
+    .mic-btn.state-listening {
+      background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.45);
+    }
+    .mic-btn.state-recording {
+      background: radial-gradient(circle at 30% 30%, #f87171, #dc2626);
+      box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45);
+    }
+    .mic-btn.state-speaking {
+      background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706);
+      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.45);
+    }
+    .mic-icon { font-size: 30px; line-height: 1; }
+
+    /* 快捷分類標籤 */
+    .tag-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .tag-btn {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #cbd5e1;
+      border-radius: 8px;
+      padding: 7px 2px;
+      font-size: 11.5px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .tag-btn.selected {
+      background: rgba(16, 185, 129, 0.2);
+      border-color: var(--green-main);
+      color: #6ee7b7;
+      font-weight: 700;
+    }
+
+    /* 連線與系統狀態橫幅 */
+    .banner {
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 13px;
+      margin-bottom: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    .banner.error {
+      display: flex;
+      background: rgba(127, 29, 29, 0.45);
+      border: 1px solid #ef4444;
+      color: #fecaca;
+    }
+    .banner.success {
+      display: flex;
+      background: rgba(6, 78, 59, 0.55);
+      border: 1px solid #10b981;
+      color: #a7f3d0;
+    }
+
+    /* 新增：AI 語音回覆與確認對話顯示區塊 */
+    .ai-reply-card {
+      background: linear-gradient(145deg, #172554, #1e293b);
+      border: 1px solid #3b82f6;
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .ai-reply-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #93c5fd;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .ai-reply-text {
+      font-size: 15px;
+      line-height: 1.5;
+      color: #ffffff;
+      font-weight: 600;
+      min-height: 24px;
+    }
+    .ai-reply-sub {
+      font-size: 12px;
+      color: #cbd5e1;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(148, 163, 184, 0.3);
+      display: none;
+    }
+    .replay-voice-btn {
+      background: rgba(59, 130, 246, 0.25);
+      border: 1px solid #60a5fa;
+      color: #dbeafe;
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    /* 語音轉文字內容區塊 */
+    .text-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px 14px;
+    }
+    .text-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12.5px;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+    }
+    .audio-badge {
+      color: var(--green-main);
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    textarea {
+      width: 100%;
+      height: 76px;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      color: #f8fafc;
+      font-size: 15px;
+      padding: 10px;
+      resize: none;
+      line-height: 1.45;
+    }
+    textarea:focus { outline: none; border-color: var(--green-main); }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1.6fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn-clear {
+      background: #334155;
+      color: #f8fafc;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-submit {
+      background: var(--green-main);
+      color: #06281e;
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* 底部導覽列 */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: #0b1120;
+      border-top: 1px solid var(--card-border);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      z-index: 30;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-decoration: none;
+      gap: 3px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+    }
+    .nav-item.active { color: var(--green-main); font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div>
+      <div class="header-title">東寶牧場 | 現場作業系統</div>
+      <div class="header-sub" id="todayLabel">今日日期：載入中...</div>
+    </div>
+    <div class="operator-badge">👤 李宥緯</div>
+  </div>
+
+  <div class="container">
+    <!-- 主控區：支援「連續聆聽對話」與「手動錄音」 -->
+    <div class="main-card">
+      <div class="mode-switch">
+        <button class="mode-btn active" id="modeListenBtn" onclick="switchMode('listen')">🎧 連續聆聽對話</button>
+        <button class="mode-btn" id="modeRecordBtn" onclick="switchMode('record')">🎙️ 傳統錄音備援</button>
+      </div>
+
+      <div>
+        <span class="status-pill" id="statusPill">點擊下方按鈕開啟免持聆聽（講完停頓 1.8 秒自動判讀）</span>
+      </div>
+
+      <div class="timer-display" id="timerDisplay">03:00</div>
+
+      <div class="mic-wrapper" id="micWrapper">
+        <div class="pulse-ring"></div>
+        <button class="mic-btn" id="mainMicBtn" onclick="handleMainButton()">
+          <span class="mic-icon" id="micIcon">🎧</span>
+          <span id="micLabel">開啟聆聽</span>
+        </button>
+      </div>
+
+      <!-- 快捷分類標籤 -->
+      <div class="tag-grid" id="tagGrid">
+        <button class="tag-btn" onclick="selectTag(this, '移欄')">移欄</button>
+        <button class="tag-btn" onclick="selectTag(this, '去勢免疫')">去勢免疫</button>
+        <button class="tag-btn" onclick="selectTag(this, '配種')">配種</button>
+        <button class="tag-btn" onclick="selectTag(this, '巡檢異常')">巡檢異常</button>
+        <button class="tag-btn" onclick="selectTag(this, '採購(簽帳)')">採購(簽帳)</button>
+        <button class="tag-btn" onclick="selectTag(this, '採購(零用金)')">採購(零用金)</button>
+        <button class="tag-btn" onclick="selectTag(this, '設備報修')">設備報修</button>
+        <button class="tag-btn" onclick="selectTag(this, '設備修復')">設備修復</button>
+        <button class="tag-btn" onclick="selectTag(this, '環境盤點')">環境盤點</button>
+        <button class="tag-btn" onclick="selectTag(this, '飼料限飼')">飼料限飼</button>
+      </div>
+    </div>
+
+    <!-- 連線／執行狀態提示 -->
+    <div class="banner" id="statusBanner"></div>
+
+    <!-- 新增：AI 語音回覆與確認對話顯示區塊 -->
+    <div class="ai-reply-card">
+      <div class="ai-reply-header">
+        <span>🤖 AI 現場助理語音回覆與規則檢核</span>
+        <button class="replay-voice-btn" onclick="replayLastSpeech()">🔊 重播語音</button>
+      </div>
+      <div class="ai-reply-text" id="aiReplyText">待命中。開啟聆聽後直接說出現場狀況（例：「C20從今天開始飼料減半，他有點太胖了」）。</div>
+      <div class="ai-reply-sub" id="aiPendingContext"></div>
+    </div>
+
+    <!-- 語音轉文字顯示與手動微調區塊 -->
+    <div class="text-card">
+      <div class="text-card-header">
+        <span>📝 語音轉文字內容（可手動微調或直接語音確認）</span>
+        <span class="audio-badge" id="audioBadge">● 即時語音辨識就緒</span>
+      </div>
+      <textarea id="transcriptBox" placeholder="聆聽到的語音文字會即時顯示在此..."></textarea>
+      <div class="action-row">
+        <button class="btn-clear" onclick="resetAll()">清除重來</button>
+        <button class="btn-submit" id="submitBtn" onclick="manualSubmit()">🚀 送出指令寫入</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部三頁籤 -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="switchTab('voice')">
+      <span style="font-size:18px;">🎙️</span>
+      <span>語音指令</span>
+    </button>
+    <button class="nav-item" onclick="switchTab('checklist')">
+      <span style="font-size:18px;">📋</span>
+      <span>每日檢核表</span>
+    </button>
+    <button class="nav-item" onclick="switchTab('log')">
+      <span style="font-size:18px;">📄</span>
+      <span>A4 日誌</span>
+    </button>
+  </nav>
+
+  <script>
+    // ★ 請填入你部署後的 Google Apps Script Web App 網址（結尾為 /exec）
+    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/你的部署ID/exec";
+
+    // 初始化今日日期
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    document.getElementById('todayLabel').textContent = `今日日期：${yyyy}-${mm}-${dd}`;
+
+    // 狀態變數
+    let currentMode = 'listen'; // 'listen' | 'record'
+    let isListening = false;
+    let isRecording = false;
+    let selectedTag = '';
+    let recognition = null;
+    let silenceTimer = null;
+    let countdownTimer = null;
+    let remainingSeconds = 180;
+    let finalTranscript = '';
+    let lastSpokenText = '';
+
+    // 對話確認上下文（用於處理「限飼三天嗎？」->「對。」的多輪確認）
+    let conversationState = {
+      awaitingConfirmation: false,
+      pendingActionPayload: null,
+      lastAiQuestion: ''
+    };
+
+    // MediaRecorder 備援變數
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let audioBase64 = '';
+
+    // 1. 初始化 Web Speech API (iOS Safari / Chrome 支援)
+    function initSpeechRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        showBanner('error', '此瀏覽器不支援即時語音辨識，請切換為「傳統錄音備援」模式。');
+        return null;
+      }
+      const recog = new SpeechRecognition();
+      recog.lang = 'zh-TW';
+      recog.continuous = true;
+      recog.interimResults = true;
+
+      recog.onstart = () => {
+        isListening = true;
+        updateMicUI('listening');
+        setStatusPill('listening', conversationState.awaitingConfirmation
+          ? '🎧 聆聽中... 請回答「對」確認，或直接說明修改天數'
+          : '🎧 聆聽中... 請說話（停頓 1.8 秒自動判定聆聽終了）');
       };
-    }
 
-    // 支援回答「對」或直接修改天數（例如「改五天」）
-    const pending = req.pendingActionPayload;
-    const customDaysMatch = transcript.match(/(\d+|一|二|兩|三|四|五|六|七)天/);
-    if (customDaysMatch) {
-      pending.days = chineseNumToInt(customDaysMatch[1]);
-    }
+      recog.onresult = (event) => {
+        clearTimeout(silenceTimer);
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interim += event.results[i][0].transcript;
+          }
+        }
+        const combined = (finalTranscript + interim).trim();
+        document.getElementById('transcriptBox').value = combined;
 
-    if (isYes || customDaysMatch) {
-      executeWriteToSheets(pending, dateStr, operator);
-      return {
-        status: "CONFIRMED_AND_SAVED",
-        summary: `${pending.pen} ${pending.markType}（限飼 ${pending.days} 天，預計 ${pending.restoreDate} 恢復）`,
-        replyText: `好的，立刻為您寫入，並會在${intToChineseNum(pending.days)}天內提示在每日檢核表及收班工作日誌。`
-      };
-    }
-  }
-
-  // 情境 B：新指令進來，先檢查「限飼／飼料減半」規則（檢核規則：限飼要有固定天數，預設 3 天並反問確認）
-  const restrictMatch = transcript.match(/([A-Za-z]\d+[前後]?|[PNXYQ]\d+).*(減半|限飼|減量|太胖)/i);
-  if (restrictMatch) {
-    const pen = restrictMatch[1].toUpperCase();
-    const daysMatch = transcript.match(/(\d+|一|二|兩|三|四|五|六|七)天/);
-    const days = daysMatch ? chineseNumToInt(daysMatch[1]) : 3; // 預設 3 天
-    const markType = transcript.includes("發情") ? "發情減量" : (transcript.includes("配種") ? "配種限飼" : "過胖減量");
-    const restoreDate = addDays(dateStr, days);
-
-    // 若使用者沒有明確講出天數，或需要二次語音確認，主動反問
-    if (!daysMatch) {
-      return {
-        status: "NEED_CONFIRMATION",
-        summary: `${pen} 擬設定「${markType}」共 ${days} 天`,
-        replyText: `是 ${pen} 即日起就要限飼${intToChineseNum(days)}天嗎？`,
-        pendingActionPayload: {
-          actionType: "FEED_RESTRICTION",
-          pen: pen,
-          markType: markType,
-          days: days,
-          restoreDate: restoreDate,
-          rawText: transcript
+        // 偵測說話停頓 1.8 秒 -> 判定「聆聽終了」，自動送出判讀與語音回覆
+        if (combined.length > 0) {
+          silenceTimer = setTimeout(() => {
+            onListeningEnd(combined);
+          }, 1800);
         }
       };
+
+      recog.onerror = (event) => {
+        if (event.error === 'no-speech' && isListening) {
+          // 無聲超時自動重啟維持聆聽
+          return;
+        }
+        console.warn('SpeechRecognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          isListening = false;
+          updateMicUI('idle');
+          showBanner('error', '麥克風權限被拒，請在 Safari 設定允許麥克風存取。');
+        }
+      };
+
+      recog.onend = () => {
+        // 若仍處於連續聆聽狀態且非 AI 正在講話，自動續接（解決 iOS Safari 單次辨識中斷問題）
+        if (isListening && !window.speechSynthesis.speaking) {
+          try { recog.start(); } catch (e) {}
+        }
+      };
+
+      return recog;
     }
-  }
 
-  // 情境 C：其他常規現場指令（呼叫 Gemini 結構化解析並直接寫入《事件簿》）
-  const parsed = parseWithGemini(transcript, req.tag, dateStr);
-  writeEventRow(dateStr, parsed.type, parsed.pen, parsed.newPen, parsed.target, parsed.headCount, parsed.record, operator);
+    // 2. 聆聽終了觸發：送往後端 AI 進行規則檢核或寫入
+    async function onListeningEnd(spokenText) {
+      stopListeningOnly();
+      setStatusPill('speaking', '⏳ 聆聽終了，AI 正在檢核規則與處理指令...');
+      document.getElementById('aiReplyText').textContent = `收到語音：「${spokenText}」，規則檢核中...`;
 
-  return {
-    status: "SAVED",
-    summary: parsed.record,
-    replyText: `好的，已為您記錄：${parsed.shortConfirm}，並列入今日收班工作日誌。`
-  };
-}
-
-// 寫入限飼設定至《欄位主檔》、《今日待辦》與《事件簿》
-function executeWriteToSheets(pending, dateStr, operator) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const restoreDate = addDays(dateStr, pending.days);
-
-  // 1. 更新《欄位主檔》
-  const masterSheet = ss.getSheetByName("欄位主檔");
-  const masterData = masterSheet.getDataRange().getValues();
-  for (let i = 1; i < masterData.length; i++) {
-    if (String(masterData[i][0]).trim().toUpperCase() === pending.pen) {
-      masterSheet.getRange(i + 1, 18).setValue(pending.markType); // R欄：飼料減量標記
-      masterSheet.getRange(i + 1, 19).setValue(restoreDate);      // S欄：預計恢復正常飼料日
-      const oldNote = masterData[i][19] || "";
-      masterSheet.getRange(i + 1, 20).setValue(`${oldNote}；${dateStr} 語音設定${pending.markType} ${pending.days} 天（預計 ${restoreDate} 恢復）`);
-      break;
+      await sendInstructionToGAS({
+        transcript: spokenText,
+        tag: selectedTag,
+        awaitingConfirmation: conversationState.awaitingConfirmation,
+        pendingActionPayload: conversationState.pendingActionPayload,
+        autoResumeListen: true
+      });
     }
-  }
 
-  // 2. 寫入《今日待辦》作為每日檢核提醒
-  const todoSheet = ss.getSheetByName("今日待辦");
-  const todoId = `UNMARK-${pending.pen}-${restoreDate.replace(/-/g, "")}`;
-  todoSheet.appendRow([
-    todoId,
-    restoreDate,
-    `${pending.pen} 母豬 1 頭`,
-    pending.pen,
-    `【撤除減量標記】${pending.markType}滿 ${pending.days} 天，檢核體態並提醒撤除減量標記、恢復正常飼料量`,
-    "追蹤中",
-    "",
-    `${dateStr} 語音指令設定（${pending.rawText}）`
-  ]);
+    // 3. 傳送資料至 Google Apps Script（使用 text/plain 避開 iOS Safari CORS Load failed）
+    async function sendInstructionToGAS(payload) {
+      const submitBtn = document.getElementById('submitBtn');
+      submitBtn.disabled = true;
+      hideBanner();
 
-  // 3. 寫入《事件簿》
-  writeEventRow(
-    dateStr,
-    "飼料與標記調整",
-    pending.pen,
-    "",
-    "母豬",
-    1,
-    `${dateStr} ${pending.pen} 設定「${pending.markType}」${pending.days} 天（預計 ${restoreDate} 恢復正常餵飼；操作人：${operator}）`,
-    operator
-  );
-}
+      try {
+        const response = await fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          mode: 'cors',
+          redirect: 'follow',
+          headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+          },
+          body: JSON.stringify({
+            date: `${yyyy}-${mm}-${dd}`,
+            operator: '李宥緯',
+            transcript: payload.transcript,
+            tag: payload.tag || '',
+            audioBase64: payload.audioBase64 || '',
+            awaitingConfirmation: payload.awaitingConfirmation || false,
+            pendingActionPayload: payload.pendingActionPayload || null
+          })
+        });
 
-function writeEventRow(dateStr, type, pen, newPen, target, headCount, record, operator) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  const eventSheet = ss.getSheetByName("事件簿");
-  const eventId = `VOICE-${dateStr.replace(/-/g, "")}-${Math.floor(1000 + Math.random() * 9000)}`;
-  eventSheet.appendRow([
-    eventId,
-    dateStr,
-    dateStr,
-    type,
-    pen,
-    newPen,
-    target,
-    headCount,
-    record,
-    "收班列入",
-    "已完成",
-    "",
-    dateStr,
-    `語音系統即時寫入｜${operator}`
-  ]);
-}
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
 
-function parseWithGemini(transcript, tag, dateStr) {
-  if (!GEMINI_API_KEY) {
-    return {
-      type: tag || "巡檢異常",
-      pen: "",
-      newPen: "",
-      target: "豬隻",
-      headCount: "",
-      record: transcript,
-      shortConfirm: transcript
-    };
-  }
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-  const prompt = `你是東寶牧場現場資料解析器。將以下現場語音轉為 JSON（不要 markdown）：
-{"type":"類型","pen":"原欄號","newPen":"新欄號","target":"對象","headCount":數字或空字串,"record":"完整正規化中文紀錄(P轉分娩舍第X欄、N轉保三舍第X欄)","shortConfirm":"15字內語音確認摘要"}
-語音內容：「${transcript}」，快捷標籤：「${tag}」，日期：「${dateStr}」。`;
+        const result = await response.json();
+        handleGASResponse(result, payload.autoResumeListen);
 
-  const res = UrlFetchApp.fetch(url, {
-    method: "post",
-    contentType: "application/json",
-    payload: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-  });
-  const json = JSON.parse(res.getContentText());
-  const text = json.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
-  return JSON.parse(text);
-}
+      } catch (err) {
+        console.error(err);
+        showBanner('error', `連線失敗：${err.message}（請確認網路或 GAS 部署權限設為「所有人」）`);
+        setStatusPill('idle', '⚠️ 連線異常，文字已保留，可按「送出指令寫入」重試');
+        updateMicUI('idle');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    }
 
-function addDays(dateStr, days) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return Utilities.formatDate(d, "Asia/Taipei", "yyyy-MM-dd");
-}
+    // 4. 處理後端 AI 回覆（包含「反問確認」與「完成寫入」兩種狀態）
+    function handleGASResponse(result, autoResumeListen) {
+      const replyText = result.replyText || '指令已處理完成。';
+      document.getElementById('aiReplyText').textContent = replyText;
 
-function chineseNumToInt(str) {
-  const map = { "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7 };
-  return map[str] || parseInt(str, 10) || 3;
-}
+      if (result.status === 'NEED_CONFIRMATION') {
+        // AI 提出反問（例如：「是 C20 即日起就要限飼三天嗎？」）
+        conversationState.awaitingConfirmation = true;
+        conversationState.pendingActionPayload = result.pendingActionPayload;
+        conversationState.lastAiQuestion = replyText;
 
-function intToChineseNum(num) {
-  const map = { 1: "一", 2: "兩", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七" };
-  return map[num] || String(num);
-}
+        const subBox = document.getElementById('aiPendingContext');
+        subBox.style.display = 'block';
+        subBox.textContent = `📌 待確認事項：${result.summary || '限飼天數檢核'}（請直接回答「對」或說明天數）`;
+
+        finalTranscript = '';
+        document.getElementById('transcriptBox').value = '';
+
+        // 語音唸出反問，唸完後自動開啟聆聽等你回答「對」
+        speakText(replyText, () => {
+          if (autoResumeListen && currentMode === 'listen') {
+            startListening();
+          }
+        });
+
+      } else if (result.status === 'CONFIRMED_AND_SAVED' || result.status === 'SAVED') {
+        // 已確認並成功寫入 Google 試算表
+        conversationState.awaitingConfirmation = false;
+        conversationState.pendingActionPayload = null;
+        document.getElementById('aiPendingContext').style.display = 'none';
+
+        showBanner('success', `✅ 已成功寫入資料表：${result.summary || replyText}`);
+        finalTranscript = '';
+        document.getElementById('transcriptBox').value = '';
+        audioBase64 = '';
+
+        // 語音唸出完成回報（例如：「好的，立刻為您寫入，並會在三天內提示在每日檢核表及收班工作日誌。」）
+        speakText(replyText, () => {
+          setStatusPill('idle', '✅ 寫入完成！點擊按鈕可繼續下一筆語音指令');
+          updateMicUI('idle');
+        });
+      } else {
+        // 取消或未聽清楚
+        conversationState.awaitingConfirmation = false;
+        conversationState.pendingActionPayload = null;
+        document.getElementById('aiPendingContext').style.display = 'none';
+        speakText(replyText, () => {
+          updateMicUI('idle');
+        });
+      }
+    }
+
+    // 5. 語音合成播報（TTS）＋ 播報結束自動回呼
+    function speakText(text, onEndCallback) {
+      lastSpokenText = text;
+      updateMicUI('speaking');
+      setStatusPill('speaking', '🔊 AI 語音回覆中...');
+
+      if (!('speechSynthesis' in window)) {
+        if (onEndCallback) onEndCallback();
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'zh-TW';
+      utter.rate = 1.05;
+      utter.pitch = 1.0;
+
+      utter.onend = () => {
+        if (onEndCallback) onEndCallback();
+      };
+      utter.onerror = () => {
+        if (onEndCallback) onEndCallback();
+      };
+
+      window.speechSynthesis.speak(utter);
+    }
+
+    function replayLastSpeech() {
+      if (lastSpokenText) {
+        speakText(lastSpokenText, () => updateMicUI('idle'));
+      }
+    }
+
+    // 6. 主按鈕與模式控制
+    function switchMode(mode) {
+      stopAllAudio();
+      currentMode = mode;
+      document.getElementById('modeListenBtn').classList.toggle('active', mode === 'listen');
+      document.getElementById('modeRecordBtn').classList.toggle('active', mode === 'record');
+      updateMicUI('idle');
+      setStatusPill('idle', mode === 'listen'
+        ? '點擊下方按鈕開啟免持聆聽（講完停頓 1.8 秒自動判讀）'
+        : '傳統錄音模式：最多錄音 3 分鐘，錄完可微調文字後送出');
+    }
+
+    function handleMainButton() {
+      // iOS Safari 必須在第一次使用者點擊時解鎖 speechSynthesis
+      if ('speechSynthesis' in window) {
+        const unlock = new SpeechSynthesisUtterance('');
+        window.speechSynthesis.speak(unlock);
+      }
+
+      if (currentMode === 'listen') {
+        if (isListening) {
+          stopAllAudio();
+          setStatusPill('idle', '⏸️ 已暫停聆聽');
+        } else {
+          startListening();
+        }
+      } else {
+        if (isRecording) {
+          stopTraditionalRecording();
+        } else {
+          startTraditionalRecording();
+        }
+      }
+    }
+
+    function startListening() {
+      if (!recognition) {
+        recognition = initSpeechRecognition();
+      }
+      if (!recognition) return;
+      finalTranscript = document.getElementById('transcriptBox').value.trim();
+      if (finalTranscript) finalTranscript += ' ';
+      isListening = true;
+      startCountdown();
+      try {
+        recognition.start();
+      } catch (e) {}
+    }
+
+    function stopListeningOnly() {
+      isListening = false;
+      clearTimeout(silenceTimer);
+      clearInterval(countdownTimer);
+      if (recognition) {
+        try { recognition.stop(); } catch (e) {}
+      }
+    }
+
+    // 傳統錄音備援（僅在無網路辨識或吵雜環境使用，且限制低位元率防 Load failed）
+    async function startTraditionalRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream, { audioBitsPerSecond: 32000 });
+        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            audioBase64 = reader.result.split(',')[1];
+            document.getElementById('audioBadge').textContent = '● 已附帶輕量壓縮音檔';
+          };
+          reader.readAsDataURL(blob);
+          stream.getTracks().forEach(t => t.stop());
+        };
+        mediaRecorder.start();
+        isRecording = true;
+        updateMicUI('recording');
+        setStatusPill('listening', '🔴 錄音中... 再次點擊結束錄音');
+        startCountdown();
+      } catch (err) {
+        showBanner('error', '無法啟動麥克風：' + err.message);
+      }
+    }
+
+    function stopTraditionalRecording() {
+      isRecording = false;
+      clearInterval(countdownTimer);
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      updateMicUI('idle');
+      setStatusPill('idle', '✅ 錄音完成，請確認文字後按「送出指令寫入」');
+    }
+
+    function stopAllAudio() {
+      stopListeningOnly();
+      if (isRecording) stopTraditionalRecording();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      updateMicUI('idle');
+    }
+
+    function startCountdown() {
+      clearInterval(countdownTimer);
+      remainingSeconds = 180;
+      updateTimerText();
+      countdownTimer = setInterval(() => {
+        remainingSeconds--;
+        updateTimerText();
+        if (remainingSeconds <= 0) {
+          stopAllAudio();
+          const txt = document.getElementById('transcriptBox').value.trim();
+          if (txt) onListeningEnd(txt);
+        }
+      }, 1000);
+    }
+
+    function updateTimerText() {
+      const m = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+      const s = String(remainingSeconds % 60).padStart(2, '0');
+      document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+    }
+
+    function updateMicUI(state) {
+      const wrapper = document.getElementById('micWrapper');
+      const btn = document.getElementById('mainMicBtn');
+      const icon = document.getElementById('micIcon');
+      const label = document.getElementById('micLabel');
+
+      wrapper.className = 'mic-wrapper';
+      btn.className = 'mic-btn';
+
+      if (state === 'listening') {
+        wrapper.classList.add('is-listening');
+        btn.classList.add('state-listening');
+        icon.textContent = '👂';
+        label.textContent = '聆聽中...';
+      } else if (state === 'recording') {
+        wrapper.classList.add('is-recording');
+        btn.classList.add('state-recording');
+        icon.textContent = '⏹️';
+        label.textContent = '停止錄音';
+      } else if (state === 'speaking') {
+        btn.classList.add('state-speaking');
+        icon.textContent = '🔊';
+        label.textContent = 'AI 回覆中';
+      } else {
+        icon.textContent = currentMode === 'listen' ? '🎧' : '🎙️';
+        label.textContent = currentMode === 'listen' ? '開啟聆聽' : '點擊錄音';
+      }
+    }
+
+    function selectTag(el, tag) {
+      document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('selected'));
+      if (selectedTag === tag) {
+        selectedTag = '';
+      } else {
+        selectedTag = tag;
+        el.classList.add('selected');
+      }
+    }
+
+    function manualSubmit() {
+      const txt = document.getElementById('transcriptBox').value.trim();
+      if (!txt && !audioBase64) {
+        showBanner('error', '請先說話或輸入指令文字再送出！');
+        return;
+      }
+      stopAllAudio();
+      sendInstructionToGAS({
+        transcript: txt,
+        tag: selectedTag,
+        audioBase64: audioBase64,
+        awaitingConfirmation: conversationState.awaitingConfirmation,
+        pendingActionPayload: conversationState.pendingActionPayload,
+        autoResumeListen: false
+      });
+    }
+
+    function resetAll() {
+      stopAllAudio();
+      finalTranscript = '';
+      audioBase64 = '';
+      selectedTag = '';
+      conversationState = { awaitingConfirmation: false, pendingActionPayload: null, lastAiQuestion: '' };
+      document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('selected'));
+      document.getElementById('transcriptBox').value = '';
+      document.getElementById('aiPendingContext').style.display = 'none';
+      document.getElementById('aiReplyText').textContent = '已清除重來。點擊「開啟聆聽」即可開始。';
+      remainingSeconds = 180;
+      updateTimerText();
+      hideBanner();
+      setStatusPill('idle', '點擊下方按鈕開啟免持聆聽');
+    }
+
+    function setStatusPill(type, text) {
+      const pill = document.getElementById('statusPill');
+      pill.className = 'status-pill';
+      if (type === 'listening') pill.classList.add('listening');
+      if (type === 'speaking') pill.classList.add('speaking');
+      pill.textContent = text;
+    }
+
+    function showBanner(type, text) {
+      const b = document.getElementById('statusBanner');
+      b.className = `banner ${type}`;
+      b.textContent = text;
+    }
+
+    function hideBanner() {
+      document.getElementById('statusBanner').style.display = 'none';
+    }
+
+    function switchTab(tab) {
+      if (tab === 'checklist') {
+        alert('切換至「每日檢核表」視圖（串接《今日待辦》與《檢核規則》分頁）');
+      } else if (tab === 'log') {
+        alert('切換至「A4 收班工作日誌」預覽與匯出');
+      }
+    }
+  </script>
+</body>
+</html>
