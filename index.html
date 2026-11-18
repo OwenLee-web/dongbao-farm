@@ -329,7 +329,7 @@
           </div>
           <div class="hint-sub" id="wakeHintText">
             點擊上方按鈕開啟後，請直接說出喚醒詞 <strong>「Hi，李宥緯」</strong>。<br/>
-            喚醒後系統會回應「在，請說」，即可口述增刪改查或閒聊；一段時間未說話將自動退回待命狀態。
+            喚醒後即可口述增刪改查或閒聊，系統會複誦確認並詢問是否還有其他指令，全語音閉環互動。
           </div>
         </div>
       </div>
@@ -578,7 +578,6 @@
       };
 
       activeRecognition = recog;
-      // 同步直接啟動，確保 iOS Safari 放行第二輪、第三輪麥克風
       try { recog.start(); } catch (e) {}
 
       batchRemainingSec = 180;
@@ -670,8 +669,14 @@
     }
 
     // =========================================================================
-    // 模式 2：免持喚醒聆聽模式（純語音互動，聽到「Hi 李宥緯」才喚醒，閒置自動回待命）
+    // 模式 2：免持喚醒聆聽模式（完整閉環：喚醒 -> 3秒複誦確認 -> 動態寫入追問 -> 動態道別回待命）
     // =========================================================================
+    let isAwaitingConfirm = false;
+    let isAwaitingFollowup = false;
+    let isProcessingBackend = false;
+    let pendingConfirmTasks = [];
+    let cachedDynamicGoodbye = '';
+
     function toggleWakeListening() {
       if ('speechSynthesis' in window) {
         const u = new SpeechSynthesisUtterance('');
@@ -680,38 +685,56 @@
 
       if (isWakeEnabled) {
         isWakeEnabled = false;
+        isAwaitingConfirm = false;
+        isAwaitingFollowup = false;
+        isProcessingBackend = false;
+        pendingConfirmTasks = [];
         releaseMicrophoneHardware();
         updateWakeUI('off');
       } else {
-        // 斷點保護：同步釋放任何舊有實例並「同步」立刻啟動喚醒引擎（不可包進 setTimeout）
         releaseMicrophoneHardware();
         isWakeEnabled = true;
         isAwake = false;
+        isAwaitingConfirm = false;
+        isAwaitingFollowup = false;
+        isProcessingBackend = false;
+        pendingConfirmTasks = [];
         wakeCommandBuffer = '';
         wakeInterimText = '';
         startWakeEngine();
       }
     }
 
-// 依時段與隨機機制產生喚醒回應詞
     function getWakeGreeting() {
       const hour = new Date().getHours();
       if (hour >= 8 && hour < 10) {
         return '早安，今天又是新的一天，有什麼可以為你服務的嗎？';
       }
-      const casualReplies = ['怎麼了', '我在'];
+      const casualReplies = ['怎麼了', '我在', '我在，請說'];
       return casualReplies[Math.floor(Math.random() * casualReplies.length)];
     }
 
+    function getFallbackGoodbye() {
+      const goodbyes = [
+        '好，那如果有需要請再叫我。',
+        '沒問題，有需要隨時再喊我一聲！',
+        '好的，我先待命，有事隨時叫我。'
+      ];
+      return goodbyes[Math.floor(Math.random() * goodbyes.length)];
+    }
+
     function startWakeEngine() {
-      if (!isWakeEnabled) return;
+      if (!isWakeEnabled || isProcessingBackend) return;
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!SpeechRecognition) {
         alert('此瀏覽器不支援語音辨識');
         return;
       }
 
-      updateWakeUI(isAwake ? 'awake' : 'standby');
+      if (isAwaitingConfirm) updateWakeUI('confirming');
+      else if (isAwaitingFollowup) updateWakeUI('followup');
+      else if (isAwake) updateWakeUI('awake');
+      else updateWakeUI('standby');
 
       const recog = new SpeechRecognition();
       recog.lang = 'zh-TW';
@@ -719,7 +742,7 @@
       recog.interimResults = true;
 
       recog.onresult = (event) => {
-        if (window.speechSynthesis.speaking) return;
+        if (window.speechSynthesis.speaking || isProcessingBackend) return;
 
         let latestTranscript = '';
         let finalChunk = '';
@@ -730,8 +753,8 @@
           }
         }
 
-        // 狀態 1：待命中 -> 寬鬆比對喚醒詞（容許 Hi/High/嗨/嘿 ＋ 李宥緯及常見同音字）
-        if (!isAwake) {
+        // ★ 狀態 A：待命中 -> 偵測喚醒詞「Hi，李宥緯」
+        if (!isAwake && !isAwaitingConfirm && !isAwaitingFollowup) {
           const wakeRegex = /(?:hi|high|嗨|嘿|哈囉|你好)?[，,\s]*(?:李)?[宥又右有友佑][緯偉為衛威]/i;
           if (wakeRegex.test(latestTranscript)) {
             isAwake = true;
@@ -739,34 +762,62 @@
             wakeCommandBuffer = trailingCmd;
             wakeInterimText = '';
             updateWakeUI('awake');
-            resetWakeIdleTimer();
+            resetWakeIdleTimer(20000);
 
             if (trailingCmd.length <= 1) {
-              // 單純喊喚醒詞時，依時段回應「早安...」或隨機「怎麼了 / 我在」
-              if (activeRecognition) {
-                try {
-                  activeRecognition.onend = null;
-                  activeRecognition.stop();
-                } catch (e) {}
-              }
-              const greeting = getWakeGreeting();
-              speakText(greeting, () => {
+              stopActiveRecogOnly();
+              speakText(getWakeGreeting(), () => {
                 if (isWakeEnabled && isAwake) {
-                  resetWakeIdleTimer();
+                  resetWakeIdleTimer(20000);
                   startWakeEngine();
                 }
               });
             } else {
-              // 喚醒詞後面已直接連帶指令，停頓 1.8 秒自動送出
               clearTimeout(wakeSilenceTimer);
-              wakeSilenceTimer = setTimeout(() => processWakeCommand(), 1800);
+              wakeSilenceTimer = setTimeout(() => processWakeCommand(), 3000);
             }
           }
           return;
         }
 
-        // 狀態 2：已喚醒 -> 累積指令，停頓 1.8 秒自動執行並語音回覆
-        resetWakeIdleTimer();
+        // ★ 狀態 B：等待口頭二次確認（「這樣對嗎？」-> 聽見「對」或修正內容）
+        if (isAwaitingConfirm) {
+          resetWakeIdleTimer(20000);
+          if (finalChunk) {
+            wakeCommandBuffer += finalChunk;
+            wakeInterimText = '';
+          } else {
+            wakeInterimText = latestTranscript;
+          }
+          const replyPhrase = (wakeCommandBuffer + wakeInterimText).trim();
+          if (replyPhrase.length > 0) {
+            clearTimeout(wakeSilenceTimer);
+            wakeSilenceTimer = setTimeout(() => handleConfirmationReply(replyPhrase), 1400);
+          }
+          return;
+        }
+
+        // ★ 狀態 C：追問階段（「還有沒有其他指令？」-> 聽見「沒有」或繼續下新指令）
+        if (isAwaitingFollowup) {
+          resetWakeIdleTimer(15000);
+          if (finalChunk) {
+            wakeCommandBuffer += finalChunk;
+            wakeInterimText = '';
+          } else {
+            wakeInterimText = latestTranscript;
+          }
+          const followupPhrase = (wakeCommandBuffer + wakeInterimText).trim();
+          if (followupPhrase.length > 0) {
+            clearTimeout(wakeSilenceTimer);
+            const isShortNo = /^(沒有|沒了|沒事|好了|不用|不必|謝謝|掰掰|拜拜|先這樣)[了啊喔呀嗎。，！!？?]*$/.test(followupPhrase);
+            const waitMs = isShortNo ? 1300 : 3000;
+            wakeSilenceTimer = setTimeout(() => handleFollowupReply(followupPhrase), waitMs);
+          }
+          return;
+        }
+
+        // ★ 狀態 D：已喚醒，正在下現場指令 -> 停頓超過 3 秒（3000ms）自動送出複誦確認
+        resetWakeIdleTimer(20000);
         if (finalChunk) {
           wakeCommandBuffer += finalChunk;
           wakeInterimText = '';
@@ -779,7 +830,7 @@
           clearTimeout(wakeSilenceTimer);
           wakeSilenceTimer = setTimeout(() => {
             processWakeCommand(currentTotal);
-          }, 1800);
+          }, 3000);
         }
       };
 
@@ -792,31 +843,45 @@
       };
 
       recog.onend = () => {
-        if (isWakeEnabled && !window.speechSynthesis.speaking) {
+        if (isWakeEnabled && !window.speechSynthesis.speaking && !isProcessingBackend) {
           setTimeout(() => {
-            if (isWakeEnabled && !window.speechSynthesis.speaking) {
+            if (isWakeEnabled && !window.speechSynthesis.speaking && !isProcessingBackend) {
               try { recog.start(); } catch (e) {}
             }
-          }, 120);
+          }, 150);
         }
       };
 
       activeRecognition = recog;
       try { recog.start(); } catch (e) {}
     }
-    // 喚醒後若超過 15 秒沒有說話，自動退回待命狀態（等待下一次「Hi 李宥緯」）
-    function resetWakeIdleTimer() {
+
+    function stopActiveRecogOnly() {
+      if (activeRecognition) {
+        try {
+          activeRecognition.onend = null;
+          activeRecognition.stop();
+        } catch (e) {}
+        activeRecognition = null;
+      }
+    }
+
+    function resetWakeIdleTimer(timeoutMs = 20000) {
       clearTimeout(wakeIdleTimeout);
       wakeIdleTimeout = setTimeout(() => {
-        if (isWakeEnabled && isAwake) {
+        if (isWakeEnabled && !isProcessingBackend && (isAwake || isAwaitingConfirm || isAwaitingFollowup)) {
           isAwake = false;
+          isAwaitingConfirm = false;
+          isAwaitingFollowup = false;
+          pendingConfirmTasks = [];
           wakeCommandBuffer = '';
           wakeInterimText = '';
           updateWakeUI('standby');
         }
-      }, 15000);
+      }, timeoutMs);
     }
 
+    // 階段 1：解析指令並複誦「喔！好的...這樣對嗎？」
     async function processWakeCommand(spokenCmd) {
       const cmd = normalizeFarmText((spokenCmd || (wakeCommandBuffer + wakeInterimText)).trim());
       wakeCommandBuffer = '';
@@ -826,38 +891,158 @@
 
       if (!cmd) {
         isAwake = false;
+        isAwaitingFollowup = false;
         updateWakeUI('standby');
         return;
       }
 
-      if (activeRecognition) {
-        try {
-          activeRecognition.onend = null;
-          activeRecognition.stop();
-        } catch (e) {}
-        activeRecognition = null;
-      }
+      isProcessingBackend = true;
+      stopActiveRecogOnly();
       updateWakeUI('speaking');
 
       try {
         const res = await callGAS('WAKE_COMMAND', { transcript: cmd });
+        isProcessingBackend = false;
         const reply = res.replyText || '好的，已處理完成。';
-        speakText(reply, () => {
+
+        if (res.status === 'NEED_CONFIRMATION' && res.pendingTasks) {
           isAwake = false;
-          if (isWakeEnabled) {
-            updateWakeUI('standby');
-            startWakeEngine();
-          }
-        });
+          isAwaitingFollowup = false;
+          isAwaitingConfirm = true;
+          pendingConfirmTasks = res.pendingTasks;
+          speakText(reply, () => {
+            if (isWakeEnabled && isAwaitingConfirm) {
+              resetWakeIdleTimer(20000);
+              startWakeEngine();
+            }
+          });
+        } else {
+          // 純查詢或閒聊：Gemini 回覆中已自然包含追問，直接進入追問收聽狀態
+          isAwake = false;
+          isAwaitingConfirm = false;
+          isAwaitingFollowup = true;
+          cachedDynamicGoodbye = '';
+          speakText(reply, () => {
+            if (isWakeEnabled && isAwaitingFollowup) {
+              resetWakeIdleTimer(15000);
+              startWakeEngine();
+            }
+          });
+        }
       } catch (err) {
+        isProcessingBackend = false;
         speakText('抱歉，剛剛網路連線異常，請再喚醒我一次。', () => {
           isAwake = false;
+          isAwaitingConfirm = false;
+          isAwaitingFollowup = false;
           if (isWakeEnabled) {
             updateWakeUI('standby');
             startWakeEngine();
           }
         });
       }
+    }
+
+    // 階段 2：聽見「對！」-> 寫入資料表並朗讀 Gemini 生成的動態結案＋追問語句
+    async function handleConfirmationReply(replyText) {
+      wakeCommandBuffer = '';
+      wakeInterimText = '';
+      clearTimeout(wakeSilenceTimer);
+      clearTimeout(wakeIdleTimeout);
+
+      isProcessingBackend = true;
+      stopActiveRecogOnly();
+      updateWakeUI('speaking');
+
+      const isConfirmed = /(對|好|是|沒錯|可以|確定|嗯|對啊|對的|正確)/.test(replyText) && replyText.length <= 12;
+      const isCancelled = /^(取消|不要|作廢|算了)/.test(replyText);
+
+      if (isCancelled) {
+        isProcessingBackend = false;
+        isAwaitingConfirm = false;
+        pendingConfirmTasks = [];
+        isAwaitingFollowup = true;
+        speakText('好的，已經幫你取消這筆操作，請問還有沒有其他指令？', () => {
+          if (isWakeEnabled && isAwaitingFollowup) {
+            resetWakeIdleTimer(15000);
+            startWakeEngine();
+          }
+        });
+        return;
+      }
+
+      if (isConfirmed) {
+        try {
+          const res = await callGAS('COMMIT_PENDING_TASKS', { pendingTasks: pendingConfirmTasks });
+          isProcessingBackend = false;
+          isAwaitingConfirm = false;
+          pendingConfirmTasks = [];
+          isAwaitingFollowup = true;
+          cachedDynamicGoodbye = res.goodbyeText || '';
+
+          // 朗讀 Gemini 動態生成的結案回覆（內含追問是否還有其他指令），念完立刻開啟麥克風聽下一句！
+          const dynamicMsg = res.replyText || '好的，已經幫你寫入資料表了，請問還有沒有其他指令？';
+          speakText(dynamicMsg, () => {
+            if (isWakeEnabled && isAwaitingFollowup) {
+              resetWakeIdleTimer(15000);
+              startWakeEngine();
+            }
+          });
+        } catch (err) {
+          isProcessingBackend = false;
+          speakText('寫入資料表時發生連線異常，請再確認一次。', () => {
+            if (isWakeEnabled) {
+              updateWakeUI('standby');
+              startWakeEngine();
+            }
+          });
+        }
+        return;
+      }
+
+      // 若你說「不對，應該是要移到 Q8」，自動把這句當成新修正重新解析
+      isProcessingBackend = false;
+      isAwaitingConfirm = false;
+      pendingConfirmTasks = [];
+      isAwake = true;
+      await processWakeCommand(replyText);
+    }
+
+    // 階段 3：聽見追問後的回答（「沒有」-> 動態道別並退回待命；有新指令 -> 無縫進入下一輪）
+    async function handleFollowupReply(followupText) {
+      wakeCommandBuffer = '';
+      wakeInterimText = '';
+      clearTimeout(wakeSilenceTimer);
+      clearTimeout(wakeIdleTimeout);
+
+      stopActiveRecogOnly();
+
+      const isNoMore = /(沒有|沒了|沒事|好了|不用|不必|謝謝|掰掰|拜拜|先這樣)/.test(followupText) && followupText.length <= 12;
+
+      if (isNoMore) {
+        isAwake = false;
+        isAwaitingConfirm = false;
+        isAwaitingFollowup = false;
+        pendingConfirmTasks = [];
+        updateWakeUI('speaking');
+
+        const goodbyeLine = cachedDynamicGoodbye || getFallbackGoodbye();
+        cachedDynamicGoodbye = '';
+
+        // 念完動態道別語後，立刻回到「待命狀態」等待下次「Hi，李宥緯」
+        speakText(goodbyeLine, () => {
+          if (isWakeEnabled) {
+            updateWakeUI('standby');
+            startWakeEngine();
+          }
+        });
+        return;
+      }
+
+      // 若你直接繼續講下一件事，不需重新喚醒直接進入指令解析與確認
+      isAwaitingFollowup = false;
+      isAwake = true;
+      await processWakeCommand(followupText);
     }
 
     function updateWakeUI(state) {
@@ -884,13 +1069,27 @@
         icon.textContent = '⚡';
         label.textContent = '已喚醒・請說';
         pill.classList.add('awake');
-        pill.textContent = '⚡ 已喚醒！請直接說出指令或問題（停頓 1.8 秒自動執行）';
+        pill.textContent = '⚡ 已喚醒！請下指令（停頓 3 秒後系統會複誦與你確認）';
+      } else if (state === 'confirming') {
+        wrapper.classList.add('is-awake');
+        btn.classList.add('state-awake');
+        icon.textContent = '❓';
+        label.textContent = '等待確認中';
+        pill.classList.add('awake');
+        pill.textContent = '❓ 請回答「對」確認寫入，或直接口頭更正內容';
+      } else if (state === 'followup') {
+        wrapper.classList.add('is-awake');
+        btn.classList.add('state-awake');
+        icon.textContent = '💬';
+        label.textContent = '還有其他指令嗎';
+        pill.classList.add('awake');
+        pill.textContent = '💬 請直接說出下一件事，或回答「沒有」結束對話';
       } else if (state === 'speaking') {
         btn.classList.add('state-speaking');
         icon.textContent = '🔊';
         label.textContent = '語音回覆中';
         pill.classList.add('speaking');
-        pill.textContent = '🔊 現場助理語音回覆中...';
+        pill.textContent = '🔊 現場助理處理與語音回覆中...';
       } else {
         icon.textContent = '🔇';
         label.textContent = '聆聽模式：關閉';
@@ -929,6 +1128,9 @@
     function switchTab(tab) {
       if (tab !== 'voice') {
         isWakeEnabled = false;
+        isAwaitingConfirm = false;
+        isAwaitingFollowup = false;
+        isProcessingBackend = false;
         releaseMicrophoneHardware();
         updateBatchUI('idle');
         updateWakeUI('off');
@@ -1049,6 +1251,9 @@
     async function forceClearCacheAndCookies() {
       try {
         isWakeEnabled = false;
+        isAwaitingConfirm = false;
+        isAwaitingFollowup = false;
+        isProcessingBackend = false;
         releaseMicrophoneHardware();
         document.cookie.split(";").forEach(function(c) {
           document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
