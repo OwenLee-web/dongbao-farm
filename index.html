@@ -693,6 +693,16 @@
       }
     }
 
+// 依時段與隨機機制產生喚醒回應詞
+    function getWakeGreeting() {
+      const hour = new Date().getHours();
+      if (hour >= 8 && hour < 10) {
+        return '早安，今天又是新的一天，有什麼可以為你服務的嗎？';
+      }
+      const casualReplies = ['怎麼了', '我在'];
+      return casualReplies[Math.floor(Math.random() * casualReplies.length)];
+    }
+
     function startWakeEngine() {
       if (!isWakeEnabled) return;
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -720,7 +730,7 @@
           }
         }
 
-        // 狀態 1：待命中 -> 寬鬆比對喚醒詞（容許 Hi/High/嗨/嘿 ＋ 李宥緯及常見同音字，或直接叫「宥緯」）
+        // 狀態 1：待命中 -> 寬鬆比對喚醒詞（容許 Hi/High/嗨/嘿 ＋ 李宥緯及常見同音字）
         if (!isAwake) {
           const wakeRegex = /(?:hi|high|嗨|嘿|哈囉|你好)?[，,\s]*(?:李)?[宥又右有友佑][緯偉為衛威]/i;
           if (wakeRegex.test(latestTranscript)) {
@@ -732,14 +742,15 @@
             resetWakeIdleTimer();
 
             if (trailingCmd.length <= 1) {
-              // 單純喊喚醒詞時，用語音回應「在，請說」讓你確認已進入指令收聽
+              // 單純喊喚醒詞時，依時段回應「早安...」或隨機「怎麼了 / 我在」
               if (activeRecognition) {
                 try {
                   activeRecognition.onend = null;
                   activeRecognition.stop();
                 } catch (e) {}
               }
-              speakText('在，請說', () => {
+              const greeting = getWakeGreeting();
+              speakText(greeting, () => {
                 if (isWakeEnabled && isAwake) {
                   resetWakeIdleTimer();
                   startWakeEngine();
@@ -781,7 +792,6 @@
       };
 
       recog.onend = () => {
-        // iOS Safari 連續聆聽幾秒後若自動中斷，立刻無縫重啟維持待命/收聽
         if (isWakeEnabled && !window.speechSynthesis.speaking) {
           setTimeout(() => {
             if (isWakeEnabled && !window.speechSynthesis.speaking) {
@@ -794,7 +804,6 @@
       activeRecognition = recog;
       try { recog.start(); } catch (e) {}
     }
-
     // 喚醒後若超過 15 秒沒有說話，自動退回待命狀態（等待下一次「Hi 李宥緯」）
     function resetWakeIdleTimer() {
       clearTimeout(wakeIdleTimeout);
