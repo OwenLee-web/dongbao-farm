@@ -10,7 +10,6 @@
       --card-bg: #1e293b;
       --card-border: #334155;
       --green-main: #10b981;
-      --green-dark: #059669;
       --blue-listen: #3b82f6;
       --amber-speak: #f59e0b;
       --red-alert: #ef4444;
@@ -25,8 +24,6 @@
       color: var(--text-main);
       font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
     }
-
-    /* 頂部標題列 */
     .header {
       padding: 14px 16px 10px;
       display: flex;
@@ -38,7 +35,7 @@
       top: 0;
       z-index: 20;
     }
-    .header-title { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+    .header-title { font-size: 18px; font-weight: 700; }
     .header-sub { font-size: 12px; color: var(--green-main); margin-top: 2px; }
     .operator-badge {
       background: #1e293b;
@@ -48,10 +45,11 @@
       font-size: 12px;
       color: #cbd5e1;
     }
+    .container { padding: 12px 14px; max-width: 640px; margin: 0 auto; }
+    .tab-view { display: none; }
+    .tab-view.active { display: block; }
 
-    .container { padding: 12px 14px; max-width: 540px; margin: 0 auto; }
-
-    /* 主控卡片 */
+    /* ===== 頁籤 1：語音指令樣式 ===== */
     .main-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -60,8 +58,6 @@
       text-align: center;
       margin-bottom: 12px;
     }
-
-    /* 模式切換膠囊 */
     .mode-switch {
       display: inline-flex;
       background: #0f172a;
@@ -79,14 +75,8 @@
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
     }
-    .mode-btn.active {
-      background: var(--green-main);
-      color: #06281e;
-    }
-
-    /* 狀態提示條 */
+    .mode-btn.active { background: var(--green-main); color: #06281e; }
     .status-pill {
       display: inline-block;
       background: rgba(16, 185, 129, 0.12);
@@ -97,26 +87,9 @@
       border-radius: 999px;
       margin-bottom: 10px;
     }
-    .status-pill.listening {
-      background: rgba(59, 130, 246, 0.18);
-      border-color: #60a5fa;
-      color: #93c5fd;
-    }
-    .status-pill.speaking {
-      background: rgba(245, 158, 11, 0.18);
-      border-color: #fbbf24;
-      color: #fcd34d;
-    }
-
-    .timer-display {
-      font-size: 42px;
-      font-weight: 800;
-      letter-spacing: 2px;
-      font-variant-numeric: tabular-nums;
-      margin: 4px 0 8px;
-    }
-
-    /* 中央大圓形按鈕（支援聆聽與錄音雙狀態） */
+    .status-pill.listening { background: rgba(59, 130, 246, 0.18); border-color: #60a5fa; color: #93c5fd; }
+    .status-pill.speaking { background: rgba(245, 158, 11, 0.18); border-color: #fbbf24; color: #fcd34d; }
+    .timer-display { font-size: 42px; font-weight: 800; letter-spacing: 2px; font-variant-numeric: tabular-nums; margin: 4px 0 8px; }
     .mic-wrapper {
       position: relative;
       width: 124px;
@@ -135,19 +108,12 @@
       opacity: 0;
       pointer-events: none;
     }
-    .mic-wrapper.is-listening .pulse-ring {
-      background: var(--blue-listen);
-      animation: pulse 1.6s infinite ease-out;
-    }
-    .mic-wrapper.is-recording .pulse-ring {
-      background: var(--red-alert);
-      animation: pulse 1.2s infinite ease-out;
-    }
+    .mic-wrapper.is-listening .pulse-ring { background: var(--blue-listen); animation: pulse 1.6s infinite ease-out; }
+    .mic-wrapper.is-recording .pulse-ring { background: var(--red-alert); animation: pulse 1.2s infinite ease-out; }
     @keyframes pulse {
       0% { transform: scale(0.95); opacity: 0.65; }
       100% { transform: scale(1.45); opacity: 0; }
     }
-
     .mic-btn {
       position: relative;
       z-index: 2;
@@ -166,30 +132,12 @@
       gap: 4px;
       cursor: pointer;
       box-shadow: 0 8px 24px rgba(16, 185, 129, 0.35);
-      transition: transform 0.15s, background 0.25s;
     }
-    .mic-btn:active { transform: scale(0.95); }
-    .mic-btn.state-listening {
-      background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb);
-      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.45);
-    }
-    .mic-btn.state-recording {
-      background: radial-gradient(circle at 30% 30%, #f87171, #dc2626);
-      box-shadow: 0 8px 24px rgba(239, 68, 68, 0.45);
-    }
-    .mic-btn.state-speaking {
-      background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706);
-      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.45);
-    }
+    .mic-btn.state-listening { background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb); }
+    .mic-btn.state-recording { background: radial-gradient(circle at 30% 30%, #f87171, #dc2626); }
+    .mic-btn.state-speaking { background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); }
     .mic-icon { font-size: 30px; line-height: 1; }
-
-    /* 快捷分類標籤 */
-    .tag-grid {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 6px;
-      margin-top: 8px;
-    }
+    .tag-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
     .tag-btn {
       background: #0f172a;
       border: 1px solid #334155;
@@ -198,16 +146,8 @@
       padding: 7px 2px;
       font-size: 11.5px;
       cursor: pointer;
-      white-space: nowrap;
     }
-    .tag-btn.selected {
-      background: rgba(16, 185, 129, 0.2);
-      border-color: var(--green-main);
-      color: #6ee7b7;
-      font-weight: 700;
-    }
-
-    /* 連線與系統狀態橫幅 */
+    .tag-btn.selected { background: rgba(16, 185, 129, 0.2); border-color: var(--green-main); color: #6ee7b7; font-weight: 700; }
     .banner {
       border-radius: 12px;
       padding: 10px 14px;
@@ -216,21 +156,10 @@
       display: none;
       align-items: center;
       gap: 8px;
+      word-break: break-all;
     }
-    .banner.error {
-      display: flex;
-      background: rgba(127, 29, 29, 0.45);
-      border: 1px solid #ef4444;
-      color: #fecaca;
-    }
-    .banner.success {
-      display: flex;
-      background: rgba(6, 78, 59, 0.55);
-      border: 1px solid #10b981;
-      color: #a7f3d0;
-    }
-
-    /* 新增：AI 語音回覆與確認對話顯示區塊 */
+    .banner.error { display: flex; background: rgba(127, 29, 29, 0.45); border: 1px solid #ef4444; color: #fecaca; }
+    .banner.success { display: flex; background: rgba(6, 78, 59, 0.55); border: 1px solid #10b981; color: #a7f3d0; }
     .ai-reply-card {
       background: linear-gradient(145deg, #172554, #1e293b);
       border: 1px solid #3b82f6;
@@ -247,13 +176,7 @@
       margin-bottom: 6px;
       font-weight: 700;
     }
-    .ai-reply-text {
-      font-size: 15px;
-      line-height: 1.5;
-      color: #ffffff;
-      font-weight: 600;
-      min-height: 24px;
-    }
+    .ai-reply-text { font-size: 15px; line-height: 1.5; color: #ffffff; font-weight: 600; min-height: 24px; }
     .ai-reply-sub {
       font-size: 12px;
       color: #cbd5e1;
@@ -271,27 +194,9 @@
       font-size: 11px;
       cursor: pointer;
     }
-
-    /* 語音轉文字內容區塊 */
-    .text-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 12px 14px;
-    }
-    .text-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12.5px;
-      color: #cbd5e1;
-      margin-bottom: 8px;
-    }
-    .audio-badge {
-      color: var(--green-main);
-      font-size: 11.5px;
-      font-weight: 600;
-    }
+    .text-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 12px 14px; }
+    .text-card-header { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; color: #cbd5e1; margin-bottom: 8px; }
+    .audio-badge { color: var(--green-main); font-size: 11.5px; font-weight: 600; }
     textarea {
       width: 100%;
       height: 76px;
@@ -302,44 +207,147 @@
       font-size: 15px;
       padding: 10px;
       resize: none;
-      line-height: 1.45;
     }
-    textarea:focus { outline: none; border-color: var(--green-main); }
+    .action-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 10px; margin-top: 10px; }
+    .btn-clear { background: #334155; color: #f8fafc; border: none; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 700; cursor: pointer; }
+    .btn-submit { background: var(--green-main); color: #06281e; border: none; border-radius: 10px; padding: 12px; font-size: 15px; font-weight: 800; cursor: pointer; }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    .action-row {
-      display: grid;
-      grid-template-columns: 1fr 1.6fr;
-      gap: 10px;
-      margin-top: 10px;
+    /* ===== 頁籤 2：每日檢核表樣式 ===== */
+    .section-header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
     }
-    .btn-clear {
-      background: #334155;
-      color: #f8fafc;
-      border: none;
-      border-radius: 10px;
-      padding: 12px;
-      font-size: 15px;
-      font-weight: 700;
+    .section-title { font-size: 16px; font-weight: 700; color: #f8fafc; }
+    .btn-refresh {
+      background: #1e293b;
+      border: 1px solid #475569;
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12.5px;
       cursor: pointer;
     }
-    .btn-submit {
+    .alert-box {
+      background: rgba(185, 28, 28, 0.25);
+      border: 1px solid #ef4444;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .alert-box-title { color: #fca5a5; font-weight: 700; font-size: 13.5px; margin-bottom: 6px; }
+    .alert-item { font-size: 13px; color: #fee2e2; margin-bottom: 4px; line-height: 1.45; }
+    .todo-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .todo-card.done { opacity: 0.55; border-color: #10b981; }
+    .todo-tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .todo-title { font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 3px; }
+    .todo-desc { font-size: 12.5px; color: #94a3b8; line-height: 1.4; }
+    .btn-done {
       background: var(--green-main);
       color: #06281e;
       border: none;
-      border-radius: 10px;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .btn-done.completed { background: #334155; color: #94a3b8; cursor: default; }
+    .sop-card {
+      background: #172554;
+      border: 1px solid #3b82f6;
+      border-radius: 12px;
       padding: 12px;
-      font-size: 15px;
+      margin-top: 14px;
+      font-size: 12.5px;
+      line-height: 1.55;
+      color: #dbeafe;
+    }
+
+    /* ===== 頁籤 3：A4 日誌預覽與列印樣式 ===== */
+    .log-toolbar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .btn-print-a4 {
+      flex: 1;
+      background: #10b981;
+      color: #06281e;
+      border: none;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
       font-weight: 800;
       cursor: pointer;
     }
-    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+    .a4-paper {
+      background: #ffffff;
+      color: #1e293b;
+      border-radius: 8px;
+      padding: 16px 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+    .a4-header {
+      background: #1b4d3e;
+      color: #ffffff;
+      padding: 10px 12px;
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+    .a4-header h1 { margin: 0 0 3px 0; font-size: 16px; }
+    .a4-header .sub { font-size: 11px; color: #d1fae5; }
+    .a4-h2 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1b4d3e;
+      border-left: 4px solid #1b4d3e;
+      padding-left: 6px;
+      margin: 10px 0 5px 0;
+    }
+    .a4-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+    .a4-table th, .a4-table td {
+      border: 1px solid #cbd5e1;
+      padding: 5px 7px;
+      vertical-align: top;
+      text-align: left;
+    }
+    .a4-table th { background: #f1f5f9; color: #0f172a; font-weight: 700; }
+    .a4-label { width: 28%; background: #f8fafc; font-weight: 600; color: #334155; }
 
     /* 底部導覽列 */
     .bottom-nav {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      bottom: 0; left: 0; right: 0;
       height: 64px;
       background: #0b1120;
       border-top: 1px solid var(--card-border);
@@ -348,19 +356,20 @@
       z-index: 30;
     }
     .nav-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-muted);
-      font-size: 12px;
-      text-decoration: none;
-      gap: 3px;
-      cursor: pointer;
-      border: none;
-      background: transparent;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: var(--text-muted); font-size: 12px; gap: 3px; cursor: pointer; border: none; background: transparent;
     }
     .nav-item.active { color: var(--green-main); font-weight: 700; }
+
+    /* ★ 專供 iPhone / 瀏覽器匯出標準 A4 PDF 的列印樣式 */
+    @media print {
+      @page { size: A4; margin: 12mm; }
+      body { background: #ffffff !important; padding: 0 !important; }
+      .header, .bottom-nav, .log-toolbar, #view-voice, #view-checklist { display: none !important; }
+      #view-log { display: block !important; }
+      .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+      .a4-paper { box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
+    }
   </style>
 </head>
 <body>
@@ -374,98 +383,331 @@
   </div>
 
   <div class="container">
-    <!-- 主控區：支援「連續聆聽對話」與「手動錄音」 -->
-    <div class="main-card">
-      <div class="mode-switch">
-        <button class="mode-btn active" id="modeListenBtn" onclick="switchMode('listen')">🎧 連續聆聽對話</button>
-        <button class="mode-btn" id="modeRecordBtn" onclick="switchMode('record')">🎙️ 傳統錄音備援</button>
+    <!-- ==================== 頁籤 1：語音指令 ==================== -->
+    <div class="tab-view active" id="view-voice">
+      <div class="main-card">
+        <div class="mode-switch">
+          <button class="mode-btn active" id="modeListenBtn" onclick="switchMode('listen')">🎧 連續聆聽對話</button>
+          <button class="mode-btn" id="modeRecordBtn" onclick="switchMode('record')">🎙️ 傳統錄音備援</button>
+        </div>
+        <div>
+          <span class="status-pill" id="statusPill">點擊下方按鈕開啟免持聆聽（停頓 1.8 秒自動判讀）</span>
+        </div>
+        <div class="timer-display" id="timerDisplay">03:00</div>
+        <div class="mic-wrapper" id="micWrapper">
+          <div class="pulse-ring"></div>
+          <button class="mic-btn" id="mainMicBtn" onclick="handleMainButton()">
+            <span class="mic-icon" id="micIcon">🎧</span>
+            <span id="micLabel">開啟聆聽</span>
+          </button>
+        </div>
+        <div class="tag-grid" id="tagGrid">
+          <button class="tag-btn" onclick="selectTag(this, '移欄')">移欄</button>
+          <button class="tag-btn" onclick="selectTag(this, '去勢免疫')">去勢免疫</button>
+          <button class="tag-btn" onclick="selectTag(this, '配種')">配種</button>
+          <button class="tag-btn" onclick="selectTag(this, '巡檢異常')">巡檢異常</button>
+          <button class="tag-btn" onclick="selectTag(this, '採購(簽帳)')">採購(簽帳)</button>
+          <button class="tag-btn" onclick="selectTag(this, '採購(零用金)')">採購(零用金)</button>
+          <button class="tag-btn" onclick="selectTag(this, '設備報修')">設備報修</button>
+          <button class="tag-btn" onclick="selectTag(this, '設備修復')">設備修復</button>
+          <button class="tag-btn" onclick="selectTag(this, '環境盤點')">環境盤點</button>
+          <button class="tag-btn" onclick="selectTag(this, '飼料限飼')">飼料限飼</button>
+        </div>
       </div>
 
-      <div>
-        <span class="status-pill" id="statusPill">點擊下方按鈕開啟免持聆聽（講完停頓 1.8 秒自動判讀）</span>
+      <div class="banner" id="statusBanner"></div>
+
+      <div class="ai-reply-card">
+        <div class="ai-reply-header">
+          <span>🤖 AI 現場助理語音回覆與規則檢核</span>
+          <button class="replay-voice-btn" onclick="replayLastSpeech()">🔊 重播語音</button>
+        </div>
+        <div class="ai-reply-text" id="aiReplyText">待命中。開啟聆聽後直接說出現場狀況（例：「C20從今天開始飼料減半，他有點太胖了」）。</div>
+        <div class="ai-reply-sub" id="aiPendingContext"></div>
       </div>
 
-      <div class="timer-display" id="timerDisplay">03:00</div>
-
-      <div class="mic-wrapper" id="micWrapper">
-        <div class="pulse-ring"></div>
-        <button class="mic-btn" id="mainMicBtn" onclick="handleMainButton()">
-          <span class="mic-icon" id="micIcon">🎧</span>
-          <span id="micLabel">開啟聆聽</span>
-        </button>
-      </div>
-
-      <!-- 快捷分類標籤 -->
-      <div class="tag-grid" id="tagGrid">
-        <button class="tag-btn" onclick="selectTag(this, '移欄')">移欄</button>
-        <button class="tag-btn" onclick="selectTag(this, '去勢免疫')">去勢免疫</button>
-        <button class="tag-btn" onclick="selectTag(this, '配種')">配種</button>
-        <button class="tag-btn" onclick="selectTag(this, '巡檢異常')">巡檢異常</button>
-        <button class="tag-btn" onclick="selectTag(this, '採購(簽帳)')">採購(簽帳)</button>
-        <button class="tag-btn" onclick="selectTag(this, '採購(零用金)')">採購(零用金)</button>
-        <button class="tag-btn" onclick="selectTag(this, '設備報修')">設備報修</button>
-        <button class="tag-btn" onclick="selectTag(this, '設備修復')">設備修復</button>
-        <button class="tag-btn" onclick="selectTag(this, '環境盤點')">環境盤點</button>
-        <button class="tag-btn" onclick="selectTag(this, '飼料限飼')">飼料限飼</button>
+      <div class="text-card">
+        <div class="text-card-header">
+          <span>📝 語音轉文字內容（已內建欄號同音自動糾錯）</span>
+          <span class="audio-badge" id="audioBadge">● 就緒</span>
+        </div>
+        <textarea id="transcriptBox" placeholder="聆聽到的語音文字會即時顯示在此..."></textarea>
+        <div class="action-row">
+          <button class="btn-clear" onclick="resetAll()">清除重來</button>
+          <button class="btn-submit" id="submitBtn" onclick="manualSubmit()">🚀 送出指令寫入</button>
+        </div>
       </div>
     </div>
 
-    <!-- 連線／執行狀態提示 -->
-    <div class="banner" id="statusBanner"></div>
-
-    <!-- 新增：AI 語音回覆與確認對話顯示區塊 -->
-    <div class="ai-reply-card">
-      <div class="ai-reply-header">
-        <span>🤖 AI 現場助理語音回覆與規則檢核</span>
-        <button class="replay-voice-btn" onclick="replayLastSpeech()">🔊 重播語音</button>
+    <!-- ==================== 頁籤 2：每日檢核表 ==================== -->
+    <div class="tab-view" id="view-checklist">
+      <div class="section-header-bar">
+        <div class="section-title">📋 每日現場檢核與追蹤清單</div>
+        <button class="btn-refresh" onclick="loadChecklistData()">🔄 重新同步</button>
       </div>
-      <div class="ai-reply-text" id="aiReplyText">待命中。開啟聆聽後直接說出現場狀況（例：「C20從今天開始飼料減半，他有點太胖了」）。</div>
-      <div class="ai-reply-sub" id="aiPendingContext"></div>
+
+      <!-- 預產期 ±3 天強制警戒區 -->
+      <div class="alert-box" id="dueAlertBox">
+        <div class="alert-box-title">🚨 預產期 ±3 天警戒清查（直到回報已分娩才解除）</div>
+        <div id="dueAlertList" class="alert-item">載入中...</div>
+      </div>
+
+      <!-- 今日待辦與追蹤卡片列表 -->
+      <div id="todoContainer">
+        <div style="text-align:center; color:#94a3b8; padding:24px;">正在從《東寶牧場｜現場管理資料表》同步最新檢核項目...</div>
+      </div>
+
+      <!-- 母豬分娩處置 SOP 速查卡 -->
+      <div class="sop-card">
+        <strong>📌 母豬分娩處置 SOP 現場速查：</strong><br/>
+        1. <strong>產程滿 4 小時</strong>（自第 1 隻仔豬產下起算）：施打「寶島億生素（催產）5ml ＋ 美吉命（營養針）15ml」混合一針，另加第二針「OTC 5ml」。<br/>
+        2. <strong>產程滿 6 小時仍有小豬未產出</strong>：執行人工助產（伸手進陰戶輕輕拖拽），隨即施打第二次催產「寶島億生素 5ml」，直到胎衣（胎盤）完全排出才算分娩結束。<br/>
+        3. <strong>分娩隔天食慾警戒</strong>：隔天若完全不吃，須立即檢查是否有胎衣或惡露未排乾淨導致子宮發炎，並可施打第三次催產「寶島億生素 5ml」。
+      </div>
     </div>
 
-    <!-- 語音轉文字顯示與手動微調區塊 -->
-    <div class="text-card">
-      <div class="text-card-header">
-        <span>📝 語音轉文字內容（可手動微調或直接語音確認）</span>
-        <span class="audio-badge" id="audioBadge">● 即時語音辨識就緒</span>
+    <!-- ==================== 頁籤 3：A4 日誌 ==================== -->
+    <div class="tab-view" id="view-log">
+      <div class="log-toolbar">
+        <button class="btn-refresh" onclick="loadA4LogData()">🔄 重新抓取今日最新紀錄</button>
+        <button class="btn-print-a4" onclick="window.print()">🖨️ 匯出 / 列印 A4 PDF</button>
       </div>
-      <textarea id="transcriptBox" placeholder="聆聽到的語音文字會即時顯示在此..."></textarea>
-      <div class="action-row">
-        <button class="btn-clear" onclick="resetAll()">清除重來</button>
-        <button class="btn-submit" id="submitBtn" onclick="manualSubmit()">🚀 送出指令寫入</button>
+
+      <div class="a4-paper" id="a4Paper">
+        <div class="a4-header">
+          <h1 id="a4DocTitle">東寶牧場-工作日誌_載入中</h1>
+          <div class="sub" id="a4DocSub">紀錄時間：載入中 ｜ 填報人員：李宥緯</div>
+        </div>
+
+        <div class="a4-h2">一、基本資訊與環境溫控</div>
+        <table class="a4-table">
+          <tr><td class="a4-label">日誌標題</td><td id="a4TitleCell">-</td></tr>
+          <tr><td class="a4-label">天氣與帆布評估</td><td id="a4WeatherCell">【待現場確認】</td></tr>
+          <tr><td class="a4-label">分娩舍室內溫度</td><td id="a4TempCell">【待現場確認】</td></tr>
+          <tr><td class="a4-label">低溫控速旋鈕刻度</td><td id="a4KnobCell">【待現場確認】</td></tr>
+        </table>
+
+        <div class="a4-h2">二、今日完成工作</div>
+        <table class="a4-table">
+          <thead><tr><th style="width:28%;">作業分類</th><th>具體執行內容</th></tr></thead>
+          <tbody id="a4DoneBody"><tr><td colspan="2">載入中...</td></tr></tbody>
+        </table>
+
+        <div class="a4-h2">三、收班飼料存量</div>
+        <table class="a4-table">
+          <thead><tr><th style="width:28%;">飼料品項</th><th>收班實盤存量</th></tr></thead>
+          <tbody id="a4FeedBody">
+            <tr><td class="a4-label">黃色（母前料）</td><td id="feedYellow">【待現場確認】</td></tr>
+            <tr><td class="a4-label">紅色（母後料）</td><td id="feedRed">【待現場確認】</td></tr>
+            <tr><td class="a4-label">白色（哺乳料）</td><td id="feedWhite">【待現場確認】</td></tr>
+            <tr><td class="a4-label">人工乳（粉）</td><td id="feedMilk">【待現場確認】</td></tr>
+          </tbody>
+        </table>
+
+        <div class="a4-h2">四、巡視、用藥與異常觀察紀錄</div>
+        <table class="a4-table">
+          <thead><tr><th style="width:28%;">紀錄類別</th><th>具體內容</th></tr></thead>
+          <tbody id="a4ObsBody"><tr><td colspan="2">載入中...</td></tr></tbody>
+        </table>
+
+        <div class="a4-h2">五、明日與近期預告（含未來三天預產期 ±3 天清查）</div>
+        <table class="a4-table">
+          <thead><tr><th style="width:28%;">預告類別</th><th>預定執行／觀察內容</th></tr></thead>
+          <tbody id="a4FutureBody"><tr><td colspan="2">載入中...</td></tr></tbody>
+        </table>
       </div>
     </div>
   </div>
 
-  <!-- 底部三頁籤 -->
   <nav class="bottom-nav">
-    <button class="nav-item active" onclick="switchTab('voice')">
-      <span style="font-size:18px;">🎙️</span>
-      <span>語音指令</span>
-    </button>
-    <button class="nav-item" onclick="switchTab('checklist')">
-      <span style="font-size:18px;">📋</span>
-      <span>每日檢核表</span>
-    </button>
-    <button class="nav-item" onclick="switchTab('log')">
-      <span style="font-size:18px;">📄</span>
-      <span>A4 日誌</span>
-    </button>
+    <button class="nav-item active" id="nav-voice" onclick="switchTab('voice')"><span style="font-size:18px;">🎙️</span><span>語音指令</span></button>
+    <button class="nav-item" id="nav-checklist" onclick="switchTab('checklist')"><span style="font-size:18px;">📋</span><span>每日檢核表</span></button>
+    <button class="nav-item" id="nav-log" onclick="switchTab('log')"><span style="font-size:18px;">📄</span><span>A4 日誌</span></button>
   </nav>
 
   <script>
     // ★ 請填入你部署後的 Google Apps Script Web App 網址（結尾為 /exec）
     const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxb7X1FiHYGkMogVPrDiSeSnKJrO-4ALKj65ugvNtJictfM7IRFhRulE-wLF4kHZSOy/exec";
 
-    // 初始化今日日期
+    const isInsideGAS = (typeof google !== 'undefined' && google.script && google.script.run);
     const now = new Date();
     const yyyy = now.getFullYear();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
-    document.getElementById('todayLabel').textContent = `今日日期：${yyyy}-${mm}-${dd}`;
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    const todayCompact = `${yyyy}${mm}${dd}`;
+    document.getElementById('todayLabel').textContent = `今日日期：${todayStr}`;
 
-    // 狀態變數
-    let currentMode = 'listen'; // 'listen' | 'record'
+    // ==================== 共用：呼叫 GAS 後端 ====================
+    async function callGAS(actionName, payloadObj = {}) {
+      const fullPayload = { action: actionName, date: todayStr, operator: '李宥緯', ...payloadObj };
+      if (isInsideGAS) {
+        return new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(res => resolve(typeof res === 'string' ? JSON.parse(res) : res))
+            .withFailureHandler(err => reject(new Error(err.message || 'GAS 內部執行失敗')))
+            .handleAppRequest(fullPayload);
+        });
+      } else {
+        const res = await fetch(GAS_WEB_APP_URL, {
+          method: 'POST',
+          mode: 'cors',
+          redirect: 'follow',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(fullPayload)
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      }
+    }
+
+    // ==================== 底部三頁籤切換 ====================
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById(`view-${tab}`).classList.add('active');
+      document.getElementById(`nav-${tab}`).classList.add('active');
+
+      if (tab === 'checklist') loadChecklistData();
+      if (tab === 'log') loadA4LogData();
+    }
+
+    // ==================== 頁籤 2：載入與操作每日檢核表 ====================
+    async function loadChecklistData() {
+      const container = document.getElementById('todoContainer');
+      const dueList = document.getElementById('dueAlertList');
+      container.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:20px;">正在讀取最新檢核項目...</div>';
+
+      try {
+        const data = await callGAS('GET_CHECKLIST');
+        // 1. 渲染預產期 ±3 天警戒
+        if (data.dueAlerts && data.dueAlerts.length > 0) {
+          dueList.innerHTML = data.dueAlerts.map(item =>
+            `<div>• <strong>${convertPenName(item.pen)}</strong>（配種日 ${item.breedDate}，預產日 <strong>${item.dueDate}</strong>）－ ${item.note}</div>`
+          ).join('');
+        } else {
+          dueList.innerHTML = '<div>✅ 未來三天內全場無落入預產期 ±3 天警戒之待產母豬。</div>';
+        }
+
+        // 2. 渲染今日待辦與追蹤卡片
+        if (!data.todos || data.todos.length === 0) {
+          container.innerHTML = '<div style="text-align:center;color:#6ee7b7;padding:20px;">🎉 今日所有檢核項目皆已處理完畢！</div>';
+          return;
+        }
+
+        container.innerHTML = data.todos.map(t => {
+          const isDone = (t.status === '已完成');
+          return `
+            <div class="todo-card ${isDone ? 'done' : ''}" id="todo-${t.id}">
+              <div>
+                <span class="todo-tag">${t.dueDate || '持續追蹤'} ｜ ${convertPenName(t.pen || '全場')}</span>
+                <div class="todo-title">${convertPenName(t.task)}</div>
+                <div class="todo-desc">${convertPenName(t.note || '')}</div>
+              </div>
+              <button class="btn-done ${isDone ? 'completed' : ''}"
+                ${isDone ? 'disabled' : `onclick="markTodoComplete('${t.id}', this)"`}>
+                ${isDone ? '✔ 已完成' : '✅ 標記完成'}
+              </button>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="banner error" style="display:flex;">讀取檢核表失敗：${err.message}</div>`;
+      }
+    }
+
+    async function markTodoComplete(todoId, btnEl) {
+      btnEl.disabled = true;
+      btnEl.textContent = '寫入中...';
+      try {
+        await callGAS('COMPLETE_TODO', { todoId: todoId });
+        btnEl.textContent = '✔ 已完成';
+        btnEl.classList.add('completed');
+        document.getElementById(`todo-${todoId}`).classList.add('done');
+      } catch (err) {
+        btnEl.disabled = false;
+        btnEl.textContent = '✅ 標記完成';
+        alert('更新失敗：' + err.message);
+      }
+    }
+
+    // ==================== 頁籤 3：載入與渲染 A4 日誌 ====================
+    async function loadA4LogData() {
+      document.getElementById('a4DocTitle').textContent = `東寶牧場-工作日誌_${todayCompact}`;
+      document.getElementById('a4TitleCell').textContent = `東寶牧場-工作日誌_${todayCompact}`;
+      document.getElementById('a4DocSub').textContent = `紀錄日期：${todayStr} ｜ 填報人員：李宥緯（資料同步中...）`;
+
+      try {
+        const data = await callGAS('GET_A4_LOG');
+        document.getElementById('a4DocSub').textContent = `紀錄時間：${todayStr} ${data.recordTime || '收班'} ｜ 填報人員：李宥緯`;
+
+        // 環境溫控（嚴格遵守不沿用舊數值鐵律）
+        document.getElementById('a4WeatherCell').textContent = data.env.weather || '【待現場確認】';
+        document.getElementById('a4TempCell').textContent = data.env.temp || '【待現場確認】';
+        document.getElementById('a4KnobCell').textContent = data.env.knob || '【待現場確認】';
+
+        // 四種飼料實盤
+        document.getElementById('feedYellow').textContent = data.feed.yellow || '【待現場確認】';
+        document.getElementById('feedRed').textContent = data.feed.red || '【待現場確認】';
+        document.getElementById('feedWhite').textContent = data.feed.white || '【待現場確認】';
+        document.getElementById('feedMilk').textContent = data.feed.milk || '【待現場確認】';
+
+        // 今日完成工作（僅抓取發生日期 = 當日）
+        const doneBody = document.getElementById('a4DoneBody');
+        if (data.doneEvents && data.doneEvents.length > 0) {
+          doneBody.innerHTML = data.doneEvents.map(ev =>
+            `<tr><td class="a4-label">${sanitizeLogText(ev.type)}</td><td>${sanitizeLogText(ev.record)}</td></tr>`
+          ).join('');
+        } else {
+          doneBody.innerHTML = '<tr><td colspan="2">今日尚無已結案作業紀錄</td></tr>';
+        }
+
+        // 巡視、用藥與異常觀察
+        const obsBody = document.getElementById('a4ObsBody');
+        if (data.obsEvents && data.obsEvents.length > 0) {
+          obsBody.innerHTML = data.obsEvents.map(ev =>
+            `<tr><td class="a4-label">${sanitizeLogText(ev.type)}</td><td>${sanitizeLogText(ev.record)}</td></tr>`
+          ).join('');
+        } else {
+          obsBody.innerHTML = '<tr><td colspan="2">今日無新增異常或用藥觀察紀錄</td></tr>';
+        }
+
+        // 明日與近期預告（含未來三天預產期 ±3 天）
+        const futureBody = document.getElementById('a4FutureBody');
+        const dueHtml = (data.dueAlerts && data.dueAlerts.length > 0)
+          ? data.dueAlerts.map(d => `• <strong>${convertPenName(d.pen)}</strong>：配種日 ${d.breedDate}，預產日 <strong>${d.dueDate}</strong>（${sanitizeLogText(d.note)}）`).join('<br/>')
+          : '• 未來三天內全場無落入預產期 ±3 天警戒之母豬。';
+
+        const todoHtml = (data.openTodos && data.openTodos.length > 0)
+          ? data.openTodos.map(t => `• <strong>${convertPenName(t.pen)}</strong>：${sanitizeLogText(t.task)}`).join('<br/>')
+          : '• 無待辦追蹤事項。';
+
+        futureBody.innerHTML = `
+          <tr><td class="a4-label">未來三天預產期 ±3 天警戒</td><td>${dueHtml}</td></tr>
+          <tr><td class="a4-label">跨日持續追蹤與明日提醒</td><td>${todoHtml}</td></tr>
+        `;
+      } catch (err) {
+        document.getElementById('a4DocSub').textContent = `讀取失敗：${err.message}`;
+      }
+    }
+
+    // 鐵律過濾器：全中文舍名轉換 ＋ 禁用「早班」二字
+    function convertPenName(text) {
+      if (!text) return '';
+      return String(text)
+        .replace(/\bP(\d+)\b/gi, '分娩舍第$1欄')
+        .replace(/\bY(\d+)\b/gi, '保一舍第$1欄')
+        .replace(/\bX(\d+)\b/gi, '保二舍第$1欄')
+        .replace(/\bN(\d+)\b/gi, '保三舍第$1欄')
+        .replace(/\bQ(\d+)\b/gi, '保四舍第$1欄');
+    }
+
+    function sanitizeLogText(text) {
+      return convertPenName(text).replace(/早班/g, '開班');
+    }
+
+    // ==================== 頁籤 1：語音聆聽與反問對話（沿用已驗證穩定核心） ====================
+    let currentMode = 'listen';
     let isListening = false;
     let isRecording = false;
     let selectedTag = '';
@@ -475,26 +717,24 @@
     let remainingSeconds = 180;
     let finalTranscript = '';
     let lastSpokenText = '';
+    let conversationState = { awaitingConfirmation: false, pendingActionPayload: null };
 
-    // 對話確認上下文（用於處理「限飼三天嗎？」->「對。」的多輪確認）
-    let conversationState = {
-      awaitingConfirmation: false,
-      pendingActionPayload: null,
-      lastAiQuestion: ''
-    };
+    function normalizeFarmText(raw) {
+      return raw
+        .replace(/第二型|第2型|西20|吸20|C二十/g, 'C20')
+        .replace(/(?:批|屁|P)(\d+)/gi, 'P$1')
+        .replace(/(?:西|吸|C)(\d+)/gi, 'C$1')
+        .replace(/(?:逼|比|B)(\d+)/gi, 'B$1')
+        .replace(/(?:低|滴|D)(\d+)/gi, 'D$1')
+        .replace(/(?:恩|N)(\d+)/gi, 'N$1')
+        .replace(/(?:歪|Y)(\d+)/gi, 'Y$1')
+        .replace(/(?:艾克斯|X)(\d+)/gi, 'X$1')
+        .replace(/(?:Q|秋)(\d+)/gi, 'Q$1');
+    }
 
-    // MediaRecorder 備援變數
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let audioBase64 = '';
-
-    // 1. 初始化 Web Speech API (iOS Safari / Chrome 支援)
     function initSpeechRecognition() {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        showBanner('error', '此瀏覽器不支援即時語音辨識，請切換為「傳統錄音備援」模式。');
-        return null;
-      }
+      if (!SpeechRecognition) return null;
       const recog = new SpeechRecognition();
       recog.lang = 'zh-TW';
       recog.continuous = true;
@@ -512,286 +752,123 @@
         clearTimeout(silenceTimer);
         let interim = '';
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          } else {
-            interim += event.results[i][0].transcript;
-          }
+          if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+          else interim += event.results[i][0].transcript;
         }
-        const combined = (finalTranscript + interim).trim();
+        const combined = normalizeFarmText((finalTranscript + interim).trim());
         document.getElementById('transcriptBox').value = combined;
-
-        // 偵測說話停頓 1.8 秒 -> 判定「聆聽終了」，自動送出判讀與語音回覆
         if (combined.length > 0) {
-          silenceTimer = setTimeout(() => {
-            onListeningEnd(combined);
-          }, 1800);
-        }
-      };
-
-      recog.onerror = (event) => {
-        if (event.error === 'no-speech' && isListening) {
-          // 無聲超時自動重啟維持聆聽
-          return;
-        }
-        console.warn('SpeechRecognition error:', event.error);
-        if (event.error === 'not-allowed') {
-          isListening = false;
-          updateMicUI('idle');
-          showBanner('error', '麥克風權限被拒，請在 Safari 設定允許麥克風存取。');
+          silenceTimer = setTimeout(() => onListeningEnd(combined), 1800);
         }
       };
 
       recog.onend = () => {
-        // 若仍處於連續聆聽狀態且非 AI 正在講話，自動續接（解決 iOS Safari 單次辨識中斷問題）
         if (isListening && !window.speechSynthesis.speaking) {
           try { recog.start(); } catch (e) {}
         }
       };
-
       return recog;
     }
 
-    // 2. 聆聽終了觸發：送往後端 AI 進行規則檢核或寫入
     async function onListeningEnd(spokenText) {
       stopListeningOnly();
-      setStatusPill('speaking', '⏳ 聆聽終了，AI 正在檢核規則與處理指令...');
-      document.getElementById('aiReplyText').textContent = `收到語音：「${spokenText}」，規則檢核中...`;
-
-      await sendInstructionToGAS({
-        transcript: spokenText,
-        tag: selectedTag,
-        awaitingConfirmation: conversationState.awaitingConfirmation,
-        pendingActionPayload: conversationState.pendingActionPayload,
-        autoResumeListen: true
-      });
-    }
-
-    // 3. 傳送資料至 Google Apps Script（使用 text/plain 避開 iOS Safari CORS Load failed）
-    async function sendInstructionToGAS(payload) {
-      const submitBtn = document.getElementById('submitBtn');
-      submitBtn.disabled = true;
-      hideBanner();
+      const cleaned = normalizeFarmText(spokenText);
+      document.getElementById('transcriptBox').value = cleaned;
+      setStatusPill('speaking', '⏳ 聆聽終了，AI 正在檢核規則...');
+      document.getElementById('aiReplyText').textContent = `收到語音：「${cleaned}」，規則檢核中...`;
 
       try {
-        const response = await fetch(GAS_WEB_APP_URL, {
-          method: 'POST',
-          mode: 'cors',
-          redirect: 'follow',
-          headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-          },
-          body: JSON.stringify({
-            date: `${yyyy}-${mm}-${dd}`,
-            operator: '李宥緯',
-            transcript: payload.transcript,
-            tag: payload.tag || '',
-            audioBase64: payload.audioBase64 || '',
-            awaitingConfirmation: payload.awaitingConfirmation || false,
-            pendingActionPayload: payload.pendingActionPayload || null
-          })
+        const result = await callGAS('VOICE_COMMAND', {
+          transcript: cleaned,
+          tag: selectedTag,
+          awaitingConfirmation: conversationState.awaitingConfirmation,
+          pendingActionPayload: conversationState.pendingActionPayload
         });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const result = await response.json();
-        handleGASResponse(result, payload.autoResumeListen);
-
+        handleGASResponse(result, true);
       } catch (err) {
-        console.error(err);
-        showBanner('error', `連線失敗：${err.message}（請確認網路或 GAS 部署權限設為「所有人」）`);
-        setStatusPill('idle', '⚠️ 連線異常，文字已保留，可按「送出指令寫入」重試');
+        showBanner('error', `⚠️ 連線失敗：${err.message}`);
         updateMicUI('idle');
-      } finally {
-        submitBtn.disabled = false;
       }
     }
 
-    // 4. 處理後端 AI 回覆（包含「反問確認」與「完成寫入」兩種狀態）
     function handleGASResponse(result, autoResumeListen) {
       const replyText = result.replyText || '指令已處理完成。';
       document.getElementById('aiReplyText').textContent = replyText;
 
       if (result.status === 'NEED_CONFIRMATION') {
-        // AI 提出反問（例如：「是 C20 即日起就要限飼三天嗎？」）
         conversationState.awaitingConfirmation = true;
         conversationState.pendingActionPayload = result.pendingActionPayload;
-        conversationState.lastAiQuestion = replyText;
-
         const subBox = document.getElementById('aiPendingContext');
         subBox.style.display = 'block';
-        subBox.textContent = `📌 待確認事項：${result.summary || '限飼天數檢核'}（請直接回答「對」或說明天數）`;
-
+        subBox.textContent = `📌 待確認事項：${result.summary}（請直接回答「對」或說明天數）`;
         finalTranscript = '';
         document.getElementById('transcriptBox').value = '';
-
-        // 語音唸出反問，唸完後自動開啟聆聽等你回答「對」
-        speakText(replyText, () => {
-          if (autoResumeListen && currentMode === 'listen') {
-            startListening();
-          }
-        });
-
-      } else if (result.status === 'CONFIRMED_AND_SAVED' || result.status === 'SAVED') {
-        // 已確認並成功寫入 Google 試算表
-        conversationState.awaitingConfirmation = false;
-        conversationState.pendingActionPayload = null;
-        document.getElementById('aiPendingContext').style.display = 'none';
-
-        showBanner('success', `✅ 已成功寫入資料表：${result.summary || replyText}`);
-        finalTranscript = '';
-        document.getElementById('transcriptBox').value = '';
-        audioBase64 = '';
-
-        // 語音唸出完成回報（例如：「好的，立刻為您寫入，並會在三天內提示在每日檢核表及收班工作日誌。」）
-        speakText(replyText, () => {
-          setStatusPill('idle', '✅ 寫入完成！點擊按鈕可繼續下一筆語音指令');
-          updateMicUI('idle');
-        });
+        speakText(replyText, () => { if (autoResumeListen) startListening(); });
       } else {
-        // 取消或未聽清楚
         conversationState.awaitingConfirmation = false;
         conversationState.pendingActionPayload = null;
         document.getElementById('aiPendingContext').style.display = 'none';
+        if (result.status === 'CONFIRMED_AND_SAVED' || result.status === 'SAVED') {
+          showBanner('success', `✅ 已成功寫入資料表：${result.summary || replyText}`);
+          finalTranscript = '';
+          document.getElementById('transcriptBox').value = '';
+        }
         speakText(replyText, () => {
+          setStatusPill('idle', '✅ 完成！點擊按鈕可繼續下一筆語音指令');
           updateMicUI('idle');
         });
       }
     }
 
-    // 5. 語音合成播報（TTS）＋ 播報結束自動回呼
     function speakText(text, onEndCallback) {
       lastSpokenText = text;
       updateMicUI('speaking');
       setStatusPill('speaking', '🔊 AI 語音回覆中...');
-
-      if (!('speechSynthesis' in window)) {
-        if (onEndCallback) onEndCallback();
-        return;
-      }
-
+      if (!('speechSynthesis' in window)) { if (onEndCallback) onEndCallback(); return; }
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'zh-TW';
       utter.rate = 1.05;
-      utter.pitch = 1.0;
-
-      utter.onend = () => {
-        if (onEndCallback) onEndCallback();
-      };
-      utter.onerror = () => {
-        if (onEndCallback) onEndCallback();
-      };
-
+      utter.onend = () => { if (onEndCallback) onEndCallback(); };
+      utter.onerror = () => { if (onEndCallback) onEndCallback(); };
       window.speechSynthesis.speak(utter);
     }
 
-    function replayLastSpeech() {
-      if (lastSpokenText) {
-        speakText(lastSpokenText, () => updateMicUI('idle'));
-      }
-    }
+    function replayLastSpeech() { if (lastSpokenText) speakText(lastSpokenText, () => updateMicUI('idle')); }
 
-    // 6. 主按鈕與模式控制
     function switchMode(mode) {
       stopAllAudio();
       currentMode = mode;
       document.getElementById('modeListenBtn').classList.toggle('active', mode === 'listen');
       document.getElementById('modeRecordBtn').classList.toggle('active', mode === 'record');
       updateMicUI('idle');
-      setStatusPill('idle', mode === 'listen'
-        ? '點擊下方按鈕開啟免持聆聽（講完停頓 1.8 秒自動判讀）'
-        : '傳統錄音模式：最多錄音 3 分鐘，錄完可微調文字後送出');
     }
 
     function handleMainButton() {
-      // iOS Safari 必須在第一次使用者點擊時解鎖 speechSynthesis
-      if ('speechSynthesis' in window) {
-        const unlock = new SpeechSynthesisUtterance('');
-        window.speechSynthesis.speak(unlock);
-      }
-
-      if (currentMode === 'listen') {
-        if (isListening) {
-          stopAllAudio();
-          setStatusPill('idle', '⏸️ 已暫停聆聽');
-        } else {
-          startListening();
-        }
-      } else {
-        if (isRecording) {
-          stopTraditionalRecording();
-        } else {
-          startTraditionalRecording();
-        }
-      }
+      if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+      if (isListening) { stopAllAudio(); setStatusPill('idle', '⏸️ 已暫停聆聽'); }
+      else startListening();
     }
 
     function startListening() {
-      if (!recognition) {
-        recognition = initSpeechRecognition();
-      }
+      if (!recognition) recognition = initSpeechRecognition();
       if (!recognition) return;
       finalTranscript = document.getElementById('transcriptBox').value.trim();
       if (finalTranscript) finalTranscript += ' ';
       isListening = true;
       startCountdown();
-      try {
-        recognition.start();
-      } catch (e) {}
+      try { recognition.start(); } catch (e) {}
     }
 
     function stopListeningOnly() {
       isListening = false;
       clearTimeout(silenceTimer);
       clearInterval(countdownTimer);
-      if (recognition) {
-        try { recognition.stop(); } catch (e) {}
-      }
-    }
-
-    // 傳統錄音備援（僅在無網路辨識或吵雜環境使用，且限制低位元率防 Load failed）
-    async function startTraditionalRecording() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks = [];
-        mediaRecorder = new MediaRecorder(stream, { audioBitsPerSecond: 32000 });
-        mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-        mediaRecorder.onstop = () => {
-          const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            audioBase64 = reader.result.split(',')[1];
-            document.getElementById('audioBadge').textContent = '● 已附帶輕量壓縮音檔';
-          };
-          reader.readAsDataURL(blob);
-          stream.getTracks().forEach(t => t.stop());
-        };
-        mediaRecorder.start();
-        isRecording = true;
-        updateMicUI('recording');
-        setStatusPill('listening', '🔴 錄音中... 再次點擊結束錄音');
-        startCountdown();
-      } catch (err) {
-        showBanner('error', '無法啟動麥克風：' + err.message);
-      }
-    }
-
-    function stopTraditionalRecording() {
-      isRecording = false;
-      clearInterval(countdownTimer);
-      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-      }
-      updateMicUI('idle');
-      setStatusPill('idle', '✅ 錄音完成，請確認文字後按「送出指令寫入」');
+      if (recognition) { try { recognition.stop(); } catch (e) {} }
     }
 
     function stopAllAudio() {
       stopListeningOnly();
-      if (isRecording) stopTraditionalRecording();
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       updateMicUI('idle');
     }
@@ -799,22 +876,13 @@
     function startCountdown() {
       clearInterval(countdownTimer);
       remainingSeconds = 180;
-      updateTimerText();
       countdownTimer = setInterval(() => {
         remainingSeconds--;
-        updateTimerText();
-        if (remainingSeconds <= 0) {
-          stopAllAudio();
-          const txt = document.getElementById('transcriptBox').value.trim();
-          if (txt) onListeningEnd(txt);
-        }
+        const m = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+        const s = String(remainingSeconds % 60).padStart(2, '0');
+        document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+        if (remainingSeconds <= 0) stopAllAudio();
       }, 1000);
-    }
-
-    function updateTimerText() {
-      const m = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
-      const s = String(remainingSeconds % 60).padStart(2, '0');
-      document.getElementById('timerDisplay').textContent = `${m}:${s}`;
     }
 
     function updateMicUI(state) {
@@ -822,78 +890,47 @@
       const btn = document.getElementById('mainMicBtn');
       const icon = document.getElementById('micIcon');
       const label = document.getElementById('micLabel');
-
       wrapper.className = 'mic-wrapper';
       btn.className = 'mic-btn';
-
-      if (state === 'listening') {
-        wrapper.classList.add('is-listening');
-        btn.classList.add('state-listening');
-        icon.textContent = '👂';
-        label.textContent = '聆聽中...';
-      } else if (state === 'recording') {
-        wrapper.classList.add('is-recording');
-        btn.classList.add('state-recording');
-        icon.textContent = '⏹️';
-        label.textContent = '停止錄音';
-      } else if (state === 'speaking') {
-        btn.classList.add('state-speaking');
-        icon.textContent = '🔊';
-        label.textContent = 'AI 回覆中';
-      } else {
-        icon.textContent = currentMode === 'listen' ? '🎧' : '🎙️';
-        label.textContent = currentMode === 'listen' ? '開啟聆聽' : '點擊錄音';
-      }
+      if (state === 'listening') { wrapper.classList.add('is-listening'); btn.classList.add('state-listening'); icon.textContent = '👂'; label.textContent = '聆聽中...'; }
+      else if (state === 'speaking') { btn.classList.add('state-speaking'); icon.textContent = '🔊'; label.textContent = 'AI 回覆中'; }
+      else { icon.textContent = '🎧'; label.textContent = '開啟聆聽'; }
     }
 
     function selectTag(el, tag) {
       document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('selected'));
-      if (selectedTag === tag) {
-        selectedTag = '';
-      } else {
-        selectedTag = tag;
-        el.classList.add('selected');
-      }
+      selectedTag = (selectedTag === tag) ? '' : tag;
+      if (selectedTag) el.classList.add('selected');
     }
 
-    function manualSubmit() {
+    async function manualSubmit() {
       const txt = document.getElementById('transcriptBox').value.trim();
-      if (!txt && !audioBase64) {
-        showBanner('error', '請先說話或輸入指令文字再送出！');
-        return;
-      }
+      if (!txt) return;
       stopAllAudio();
-      sendInstructionToGAS({
+      const result = await callGAS('VOICE_COMMAND', {
         transcript: txt,
         tag: selectedTag,
-        audioBase64: audioBase64,
         awaitingConfirmation: conversationState.awaitingConfirmation,
-        pendingActionPayload: conversationState.pendingActionPayload,
-        autoResumeListen: false
+        pendingActionPayload: conversationState.pendingActionPayload
       });
+      handleGASResponse(result, false);
     }
 
     function resetAll() {
       stopAllAudio();
       finalTranscript = '';
-      audioBase64 = '';
       selectedTag = '';
-      conversationState = { awaitingConfirmation: false, pendingActionPayload: null, lastAiQuestion: '' };
+      conversationState = { awaitingConfirmation: false, pendingActionPayload: null };
       document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('selected'));
       document.getElementById('transcriptBox').value = '';
       document.getElementById('aiPendingContext').style.display = 'none';
-      document.getElementById('aiReplyText').textContent = '已清除重來。點擊「開啟聆聽」即可開始。';
-      remainingSeconds = 180;
-      updateTimerText();
-      hideBanner();
-      setStatusPill('idle', '點擊下方按鈕開啟免持聆聽');
+      document.getElementById('aiReplyText').textContent = '已清除重來。';
+      document.getElementById('statusBanner').style.display = 'none';
     }
 
     function setStatusPill(type, text) {
       const pill = document.getElementById('statusPill');
-      pill.className = 'status-pill';
-      if (type === 'listening') pill.classList.add('listening');
-      if (type === 'speaking') pill.classList.add('speaking');
+      pill.className = `status-pill ${type !== 'idle' ? type : ''}`;
       pill.textContent = text;
     }
 
@@ -901,18 +938,6 @@
       const b = document.getElementById('statusBanner');
       b.className = `banner ${type}`;
       b.textContent = text;
-    }
-
-    function hideBanner() {
-      document.getElementById('statusBanner').style.display = 'none';
-    }
-
-    function switchTab(tab) {
-      if (tab === 'checklist') {
-        alert('切換至「每日檢核表」視圖（串接《今日待辦》與《檢核規則》分頁）');
-      } else if (tab === 'log') {
-        alert('切換至「A4 收班工作日誌」預覽與匯出');
-      }
     }
   </script>
 </body>
