@@ -38,12 +38,7 @@
     }
     .header-title { font-size: 18px; font-weight: 700; }
     .header-sub { font-size: 12px; color: var(--green-main); margin-top: 2px; }
-     <div style="display:flex; align-items:center; gap:6px;">
-        <button onclick="forceClearCacheAndCookies()" style="background:#7f1d1d; border:1px solid #ef4444; color:#fecaca; padding:4px 8px; border-radius:999px; font-size:11.5px; font-weight:700; cursor:pointer;">
-        🧹清快取
-        </button>
-      <div class="operator-badge">👤 李宥緯</div>
-    </div>
+
     .operator-badge {
       background: #1e293b;
       border: 1px solid #334155;
@@ -381,12 +376,17 @@
 </head>
 <body>
 
-  <div class="header">
+ <div class="header">
     <div>
       <div class="header-title">東寶牧場 | 現場作業系統</div>
       <div class="header-sub" id="todayLabel">今日日期：載入中...</div>
     </div>
-    <div class="operator-badge">👤 李宥緯</div>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <button onclick="forceClearCacheAndCookies()" style="background:#7f1d1d; border:1px solid #ef4444; color:#fecaca; padding:4px 8px; border-radius:999px; font-size:11.5px; font-weight:700; cursor:pointer;">
+        🧹 清快取
+      </button>
+      <div class="operator-badge">👤 李宥緯</div>
+    </div>
   </div>
 
   <div class="container">
