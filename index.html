@@ -725,18 +725,19 @@
     let finalTranscript = '';
     let lastSpokenText = '';
     let conversationState = { awaitingConfirmation: false, pendingActionPayload: null };
-
-    function normalizeFarmText(raw) {
+    
+     function normalizeFarmText(raw) {
       return raw
-        .replace(/第二型|第2型|西20|吸20|C二十/g, 'C20')
-        .replace(/(?:批|屁|P)(\d+)/gi, 'P$1')
-        .replace(/(?:西|吸|C)(\d+)/gi, 'C$1')
-        .replace(/(?:逼|比|B)(\d+)/gi, 'B$1')
-        .replace(/(?:低|滴|D)(\d+)/gi, 'D$1')
-        .replace(/(?:恩|N)(\d+)/gi, 'N$1')
-        .replace(/(?:歪|Y)(\d+)/gi, 'Y$1')
-        .replace(/(?:艾克斯|X)(\d+)/gi, 'X$1')
-        .replace(/(?:Q|秋)(\d+)/gi, 'Q$1');
+        .replace(/第二型|第2型|西\s*20|吸\s*20|C\s*二十/gi, 'C20')
+        .replace(/([A-Za-z])\s+(\d+)/g, '$1$2') // ★ 自動把 "C 20"、"P 25" 中間的空格合併成 "C20"、"P25"
+        .replace(/(?:批|屁|P)\s*(\d+)/gi, 'P$1')
+        .replace(/(?:西|吸|C)\s*(\d+)/gi, 'C$1')
+        .replace(/(?:逼|比|B)\s*(\d+)/gi, 'B$1')
+        .replace(/(?:低|滴|D)\s*(\d+)/gi, 'D$1')
+        .replace(/(?:恩|N)\s*(\d+)/gi, 'N$1')
+        .replace(/(?:歪|Y)\s*(\d+)/gi, 'Y$1')
+        .replace(/(?:艾克斯|X)\s*(\d+)/gi, 'X$1')
+        .replace(/(?:Q|秋)\s*(\d+)/gi, 'Q$1');
     }
 
     function initSpeechRecognition() {
