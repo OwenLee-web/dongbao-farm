@@ -24,12 +24,7 @@
       color: var(--text-main);
       font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
     }
-    <div style="display:flex; align-items:center; gap:6px;">
-        <button onclick="forceClearCacheAndCookies()" style="background:#7f1d1d; border:1px solid #ef4444; color:#fecaca; padding:4px 8px; border-radius:999px; font-size:11.5px; font-weight:700; cursor:pointer;">
-        🧹清快取
-        </button>
-      <div class="operator-badge">👤 李宥緯</div>
-    </div>
+   
     .header {
       padding: 14px 16px 10px;
       display: flex;
@@ -43,6 +38,12 @@
     }
     .header-title { font-size: 18px; font-weight: 700; }
     .header-sub { font-size: 12px; color: var(--green-main); margin-top: 2px; }
+     <div style="display:flex; align-items:center; gap:6px;">
+        <button onclick="forceClearCacheAndCookies()" style="background:#7f1d1d; border:1px solid #ef4444; color:#fecaca; padding:4px 8px; border-radius:999px; font-size:11.5px; font-weight:700; cursor:pointer;">
+        🧹清快取
+        </button>
+      <div class="operator-badge">👤 李宥緯</div>
+    </div>
     .operator-badge {
       background: #1e293b;
       border: 1px solid #334155;
@@ -945,6 +946,41 @@
       b.className = `banner ${type}`;
       b.textContent = text;
     }
+    // ★ 暫時測試專用：一鍵清空 Cookies、本地儲存、快取並強制抓最新版
+async function forceClearCacheAndCookies() {
+  try {
+    // 1. 停止所有正在執行的語音辨識與計時器
+    if (typeof stopAllAudio === 'function') stopAllAudio();
+
+    // 2. 清除目前網域下所有 Cookies
+    document.cookie.split(";").forEach(function(c) {
+      document.cookie = c
+        .replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+    });
+
+    // 3. 清除 localStorage 與 sessionStorage
+    localStorage.clear();
+    sessionStorage.clear();
+
+    // 4. 清除瀏覽器 Cache Storage 與註銷 Service Worker（若有）
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map(name => caches.delete(name)));
+    }
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister()));
+    }
+
+    // 5. 加上動態時間戳參數強制繞過 GitHub Pages / Safari 頁面快取重新載入
+    const baseUrl = window.location.href.split('?')[0];
+    window.location.replace(`${baseUrl}?nocache=${Date.now()}`);
+  } catch (e) {
+    alert('清理完成，即將重新載入：' + e.message);
+    window.location.reload(true);
+  }
+}
   </script>
 </body>
 </html>
