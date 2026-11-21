@@ -1271,15 +1271,24 @@ function showPenDetail(penCode) {
 }
 
 /* ============================================================================
- * 三、純前端即時語音作業（iOS Safari 持續聆聽防斷線・免喚醒詞・自動濾除語助詞）
+ * 三、純前端即時語音作業（iOS Safari 語音引擎狀態機修正版）
+ * 修正重點：
+ * 1. 廢除 continuous=true（iOS Safari 在 continuous=true 下經常靜默無任何 onresult 事件），改用單句循環 + 立即無縫重啟
+ * 2. 麥克風啟動 (rec.start) 必須在按鈕點擊的同步呼叫堆疊內執行，否則 iOS Safari 會拒絕授權音訊輸入
+ * 3. 即時顯示麥克風音量條 (AudioContext) 與辨識狀態診斷燈，一眼確認是否有收到聲音
+ * 4. 同時監聽 interimResults 與 finalResults，只要出現「結束」「結束了」「結束語音」「結束李宥緯」「關掉語音輸入」「不錄了」立即觸發停止
  * ==========================================================================*/
 const STOP_VOICE_REGEX = /(?:結束李宥緯|關掉語音輸入|關閉語音輸入|結束語音輸入|結束語音|停止語音|停止聆聽|不錄了|結束了|結束)/;
 
 let voiceSessionState = {
-  manualListening: false,   // 只有使用者手動點擊「結束」或偵測到結束詞才會設為 false
-  baseBeforeSession: '',    // 開啟本次語音前，暫存框裡已整理好的既有文本
-  accumulatedFinal: '',     // 本次開啟期間累積已確認的句子（跨 iOS 自動重連不遺失）
-  restartTimer: null
+  manualListening: false,
+  baseBeforeSession: '',
+  accumulatedFinal: '',
+  currentSegmentInterim: '',
+  restartTimer: null,
+  audioCtx: null,
+  micStream: null,
+  meterRaf: null
 };
 
 function initSpeechRecognition() {
@@ -1288,105 +1297,173 @@ function initSpeechRecognition() {
     document.getElementById('voiceStatusPill').textContent = '⚠️ 此瀏覽器不支援 Web Speech API，請使用 iPhone Safari 或 Chrome';
     return;
   }
-  const rec = new SpeechRecognition();
-  rec.lang = 'zh-TW';
-  rec.continuous = true;
-  rec.interimResults = true;
 
-  rec.onstart = () => {
-    appState.isListening = true;
-    const box = document.getElementById('voiceBufferBox');
-    box.disabled = true; // 聆聽開啟語音輸入的同時，文字對話框鎖定禁止寫入
+  function createRecognizer() {
+    const rec = new SpeechRecognition();
+    rec.lang = 'zh-TW';
+    // iOS Safari 關鍵修正：設為 false 搭配 onend 自動無縫續接，避免 iOS WebKit continuous=true 靜默卡死
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
 
-    const btn = document.getElementById('btnVoiceToggle');
-    btn.classList.add('listening');
-    document.getElementById('voiceBtnIcon').textContent = '🔴';
-    document.getElementById('voiceBtnText').textContent = '聆聽中（點擊結束）';
-    const pill = document.getElementById('voiceStatusPill');
-    pill.textContent = '🔴 聆聽中...（說「結束」「結束李宥緯」「關掉語音輸入」「不錄了」可自動結束）';
-    pill.classList.add('active');
-  };
+    rec.onstart = () => {
+      appState.isListening = true;
+      const pill = document.getElementById('voiceStatusPill');
+      pill.textContent = '🔴 麥克風收音中...（講完一句停頓約0.5秒會自動上字；喊「結束」即可停止）';
+      pill.classList.add('active');
+    };
 
-  rec.onresult = (event) => {
-    if (!voiceSessionState.manualListening) return;
+    rec.onresult = (event) => {
+      if (!voiceSessionState.manualListening) return;
 
-    let interim = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const piece = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        voiceSessionState.accumulatedFinal += piece;
-      } else {
-        interim += piece;
-      }
-    }
-    const combinedLive = voiceSessionState.accumulatedFinal + interim;
-
-    // 偵測口語結束指令：「結束」「結束李宥緯」「關掉語音輸入」「不錄了」等
-    if (STOP_VOICE_REGEX.test(combinedLive)) {
-      voiceSessionState.accumulatedFinal = combinedLive.replace(STOP_VOICE_REGEX, '');
-      stopVoiceInput();
-      return;
-    }
-
-    const box = document.getElementById('voiceBufferBox');
-    box.value = (voiceSessionState.baseBeforeSession ? voiceSessionState.baseBeforeSession + '\n' : '') + combinedLive;
-    box.scrollTop = box.scrollHeight;
-  };
-
-  rec.onerror = (e) => {
-    console.warn('Speech error:', e.error);
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      voiceSessionState.manualListening = false;
-      finalizeVoiceSession(voiceSessionState.baseBeforeSession, voiceSessionState.accumulatedFinal);
-      alert('麥克風權限被拒絕，請至 iPhone「設定 ➔ Safari ➔ 麥克風」允許存取。');
-    }
-  };
-
-  rec.onend = () => {
-    // 關鍵修正：iOS Safari 在播報語音或停頓約 1~2 秒後會自動觸發 onend
-    // 只要使用者還沒手動按結束、也沒有說出結束指令（manualListening 仍為 true），就立刻自動重啟麥克風！
-    if (voiceSessionState.manualListening) {
-      clearTimeout(voiceSessionState.restartTimer);
-      voiceSessionState.restartTimer = setTimeout(() => {
-        if (!voiceSessionState.manualListening) return;
-        try {
-          rec.start();
-        } catch (err) {
-          console.warn('Auto-restart retry:', err);
+      let segmentFinal = '';
+      let segmentInterim = '';
+      for (let i = 0; i < event.results.length; i++) {
+        const piece = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          segmentFinal += piece;
+        } else {
+          segmentInterim += piece;
         }
-      }, 150);
-    } else {
-      finalizeVoiceSession(voiceSessionState.baseBeforeSession, voiceSessionState.accumulatedFinal);
-    }
-  };
+      }
 
-  appState.recognition = rec;
+      voiceSessionState.currentSegmentInterim = segmentInterim;
+      const liveSegment = segmentFinal || segmentInterim;
+      const fullLiveCheck = voiceSessionState.accumulatedFinal + liveSegment;
+
+      // 只要即時或確定辨識文字出現任何結束關鍵詞，立刻結算停止！
+      if (STOP_VOICE_REGEX.test(liveSegment) || STOP_VOICE_REGEX.test(fullLiveCheck)) {
+        const cleanedSegment = liveSegment.replace(STOP_VOICE_REGEX, '').trim();
+        if (cleanedSegment) {
+          voiceSessionState.accumulatedFinal += cleanedSegment;
+        }
+        voiceSessionState.currentSegmentInterim = '';
+        stopVoiceInput();
+        return;
+      }
+
+      if (segmentFinal) {
+        voiceSessionState.accumulatedFinal += segmentFinal;
+        voiceSessionState.currentSegmentInterim = '';
+      }
+
+      // 即時將收到的內容寫入暫存文字框
+      const box = document.getElementById('voiceBufferBox');
+      const liveText = voiceSessionState.accumulatedFinal + voiceSessionState.currentSegmentInterim;
+      box.value = (voiceSessionState.baseBeforeSession ? voiceSessionState.baseBeforeSession + '\n' : '') + liveText;
+      box.scrollTop = box.scrollHeight;
+    };
+
+    rec.onerror = (e) => {
+      console.warn('Speech error:', e.error);
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        voiceSessionState.manualListening = false;
+        stopMicLevelMeter();
+        finalizeVoiceSession(voiceSessionState.baseBeforeSession, voiceSessionState.accumulatedFinal);
+        alert('麥克風權限被拒絕，請至 iPhone「設定 ➔ Safari ➔ 麥克風」允許存取。');
+      } else if (e.error === 'no-speech' || e.error === 'aborted' || e.error === 'network') {
+        // 靜音超時或短暫中斷時保持狀態，交由 onend 自動續接
+        const pill = document.getElementById('voiceStatusPill');
+        if (voiceSessionState.manualListening) {
+          pill.textContent = '🔴 持續待命聆聽中...（請直接說話，或喊「結束」停止）';
+        }
+      }
+    };
+
+    rec.onend = () => {
+      appState.isListening = false;
+      // 若結束當下還有殘留 interim 文字，先併入 accumulatedFinal 避免遺失
+      if (voiceSessionState.currentSegmentInterim) {
+        const leftover = voiceSessionState.currentSegmentInterim.replace(STOP_VOICE_REGEX, '').trim();
+        if (leftover) voiceSessionState.accumulatedFinal += leftover;
+        voiceSessionState.currentSegmentInterim = '';
+      }
+
+      if (voiceSessionState.manualListening) {
+        clearTimeout(voiceSessionState.restartTimer);
+        voiceSessionState.restartTimer = setTimeout(() => {
+          if (!voiceSessionState.manualListening) return;
+          try {
+            appState.recognition = createRecognizer();
+            appState.recognition.start();
+          } catch (err) {
+            console.warn('Re-start error:', err);
+          }
+        }, 80);
+      } else {
+        finalizeVoiceSession(voiceSessionState.baseBeforeSession, voiceSessionState.accumulatedFinal);
+      }
+    };
+
+    return rec;
+  }
+
+  appState.createRecognizer = createRecognizer;
+  appState.recognition = createRecognizer();
 }
 
-function speakFeedback(text, onFinishedCallback) {
-  if (!('speechSynthesis' in window)) {
-    if (onFinishedCallback) onFinishedCallback();
-    return;
+async function startMicLevelMeter() {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    voiceSessionState.micStream = stream;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioCtx();
+    voiceSessionState.audioCtx = ctx;
+    const src = ctx.createMediaStreamSource(stream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+
+    const updateMeter = () => {
+      if (!voiceSessionState.manualListening) return;
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i];
+      const avg = sum / data.length;
+      const btn = document.getElementById('btnVoiceToggle');
+      if (btn) {
+        const scale = 1 + Math.min(0.14, avg / 450);
+        btn.style.transform = `scale(${scale.toFixed(3)})`;
+      }
+      voiceSessionState.meterRaf = requestAnimationFrame(updateMeter);
+    };
+    updateMeter();
+  } catch (e) {
+    console.warn('Mic meter unavailable:', e);
   }
-  window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = 'zh-TW';
-  utter.rate = 1.12;
-  let fired = false;
-  const done = () => {
-    if (fired) return;
-    fired = true;
-    if (onFinishedCallback) onFinishedCallback();
-  };
-  utter.onend = done;
-  utter.onerror = done;
-  // 安全保底：若 iOS 某次未觸發 onend，最多 1.4 秒後強制啟動麥克風
-  setTimeout(done, 1400);
-  window.speechSynthesis.speak(utter);
+}
+
+function stopMicLevelMeter() {
+  if (voiceSessionState.meterRaf) cancelAnimationFrame(voiceSessionState.meterRaf);
+  if (voiceSessionState.micStream) {
+    voiceSessionState.micStream.getTracks().forEach(t => t.stop());
+    voiceSessionState.micStream = null;
+  }
+  if (voiceSessionState.audioCtx) {
+    voiceSessionState.audioCtx.close().catch(() => {});
+    voiceSessionState.audioCtx = null;
+  }
+  const btn = document.getElementById('btnVoiceToggle');
+  if (btn) btn.style.transform = 'scale(1)';
+}
+
+function speakFeedback(text) {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'zh-TW';
+    utter.rate = 1.15;
+    window.speechSynthesis.speak(utter);
+  } catch (e) {}
 }
 
 function toggleVoiceInput() {
-  if (!appState.recognition) return alert('您的瀏覽器不支援語音辨識');
+  if (!appState.recognition && !appState.createRecognizer) {
+    return alert('您的瀏覽器不支援語音辨識');
+  }
   if (voiceSessionState.manualListening || appState.isListening) {
     stopVoiceInput();
   } else {
@@ -1394,24 +1471,30 @@ function toggleVoiceInput() {
     voiceSessionState.manualListening = true;
     voiceSessionState.baseBeforeSession = box.value.trim();
     voiceSessionState.accumulatedFinal = '';
+    voiceSessionState.currentSegmentInterim = '';
 
-    // 立即把按鈕切換為「聆聽中」，讓畫面即時回饋
+    // 鎖定暫存框並立即切換按鈕狀態
     box.disabled = true;
     const btn = document.getElementById('btnVoiceToggle');
     btn.classList.add('listening');
     document.getElementById('voiceBtnIcon').textContent = '🔴';
     document.getElementById('voiceBtnText').textContent = '聆聽中（點擊結束）';
     const pill = document.getElementById('voiceStatusPill');
-    pill.textContent = '🔴 聆聽中...（說「結束」「結束李宥緯」「關掉語音輸入」「不錄了」可自動結束）';
+    pill.textContent = '🔴 正在啟動麥克風...';
     pill.classList.add('active');
 
-    // 先播報「語音輸入功能開啟」，播報完畢後立刻啟動麥克風，避免 iOS 音訊通道搶佔把麥克風踢掉
-    speakFeedback('語音輸入功能開啟', () => {
-      if (!voiceSessionState.manualListening) return;
-      try {
-        appState.recognition.start();
-      } catch (e) {}
-    });
+    // 關鍵修正：必須在點擊事件的同步執行階段直接呼叫 recognition.start()，iOS Safari 才會正式開啟語音辨識引擎！
+    try {
+      if (appState.createRecognizer) {
+        appState.recognition = appState.createRecognizer();
+      }
+      appState.recognition.start();
+    } catch (e) {
+      console.warn('Direct start error:', e);
+    }
+
+    // 啟動音量動態光圈回饋，讓使用者一眼看到麥克風正在收音
+    startMicLevelMeter();
   }
 }
 
@@ -1420,31 +1503,38 @@ function stopVoiceInput() {
   voiceSessionState.manualListening = false;
   appState.isListening = false;
   clearTimeout(voiceSessionState.restartTimer);
+  stopMicLevelMeter();
+
   try {
-    appState.recognition.stop();
+    if (appState.recognition) appState.recognition.stop();
   } catch (e) {}
+
   finalizeVoiceSession(voiceSessionState.baseBeforeSession, voiceSessionState.accumulatedFinal);
-  speakFeedback('結束語音輸入');
+  // 停止收音後再播報結束提示，完全不干擾麥克風收音
+  setTimeout(() => speakFeedback('結束語音輸入'), 120);
 }
 
 function finalizeVoiceSession(prevText, rawSessionText) {
   appState.isListening = false;
   const btn = document.getElementById('btnVoiceToggle');
   btn.classList.remove('listening');
+  btn.style.transform = 'scale(1)';
   document.getElementById('voiceBtnIcon').textContent = '🎙️';
   document.getElementById('voiceBtnText').textContent = '開啟語音輸入';
-  const pill = document.getElementById('voiceStatusPill');
-  pill.textContent = '✅ 已自動濾除贅字並整理至暫存區（可繼續開啟追加或按送出）';
-  pill.classList.remove('active');
 
   const cleanedNew = cleanChineseVoiceFiller_(rawSessionText);
   const box = document.getElementById('voiceBufferBox');
   box.disabled = false; // 解除鎖定
+
+  const pill = document.getElementById('voiceStatusPill');
   if (cleanedNew) {
     box.value = (prevText ? prevText + '\n' : '') + cleanedNew;
+    pill.textContent = '✅ 已自動濾除贅字並整理至暫存區（可繼續開啟追加或按送出）';
   } else {
     box.value = prevText;
+    pill.textContent = '⚠️ 本次未偵測到有效語音內容，請確認麥克風權限後再試';
   }
+  pill.classList.remove('active');
 }
 
 function cleanChineseVoiceFiller_(raw) {
