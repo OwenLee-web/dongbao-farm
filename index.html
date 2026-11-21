@@ -1,1275 +1,1563 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>東寶牧場 | 現場作業系統</title>
-  <style>
-    :root {
-      --bg-dark: #0f172a;
-      --card-bg: #1e293b;
-      --card-border: #334155;
-      --green-main: #10b981;
-      --blue-listen: #3b82f6;
-      --amber-speak: #f59e0b;
-      --red-alert: #ef4444;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-    }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-    body {
-      margin: 0;
-      padding: 0 0 76px 0;
-      background-color: var(--bg-dark);
-      color: var(--text-main);
-      font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
-    }
-    .header {
-      padding: 14px 16px 10px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--card-border);
-      background: #0b1120;
-      position: sticky;
-      top: 0;
-      z-index: 20;
-    }
-    .header-title { font-size: 18px; font-weight: 700; }
-    .header-sub { font-size: 12px; color: var(--green-main); margin-top: 2px; }
-    .operator-badge {
-      background: #1e293b;
-      border: 1px solid #334155;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      color: #cbd5e1;
-    }
-    .container { padding: 12px 14px; max-width: 640px; margin: 0 auto; }
-    .tab-view { display: none; }
-    .tab-view.active { display: block; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>東寶牧場｜現場作業系統 v2</title>
+<!-- MediaPipe Face Landmarker (輕量化前端人臉特徵採集與比對) -->
+<script type="module">
+  import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+  window.MediaPipeVision = { FaceLandmarker, FilesetResolver };
+</script>
+<style>
+  :root {
+    --bg-main: #0b131e;
+    --bg-card: #131f2e;
+    --bg-card-alt: #182638;
+    --border-subtle: #23364d;
+    --accent-green: #10b981;
+    --accent-green-hover: #059669;
+    --accent-teal: #14b8a6;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --pink: #f472b6;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 
-    /* ===== 頂部模式切換器（互斥斷點設計） ===== */
-    .mode-switch-bar {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      background: #0b1120;
-      border: 1px solid var(--card-border);
-      border-radius: 14px;
-      padding: 4px;
-      gap: 6px;
-      margin-bottom: 12px;
-    }
-    .mode-tab-btn {
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      padding: 10px 8px;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-    .mode-tab-btn.active {
-      background: var(--green-main);
-      color: #06281e;
-    }
+  /* Top Header */
+  header {
+    background: #0f1926;
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+  .brand-title { font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
+  .brand-sub { font-size: 12px; color: var(--accent-green); margin-top: 2px; }
+  .header-actions { display: flex; align-items: center; gap: 8px; }
+  .badge-user {
+    background: #1e293b;
+    border: 1px solid var(--border-subtle);
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .role-pill {
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .role-editor { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid #10b981; }
+  .role-visitor { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid #f59e0b; }
+  .btn-sm-danger {
+    background: rgba(239,68,68,0.18);
+    color: #fca5a5;
+    border: 1px solid rgba(239,68,68,0.45);
+    padding: 5px 10px;
+    border-radius: 16px;
+    font-size: 12px;
+    cursor: pointer;
+  }
 
-    /* ===== 主操作卡片 ===== */
-    .main-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 16px;
-      padding: 18px 14px;
-      text-align: center;
-      margin-bottom: 12px;
-    }
-    .status-pill {
-      display: inline-block;
-      background: rgba(16, 185, 129, 0.12);
-      border: 1px solid rgba(16, 185, 129, 0.35);
-      color: #6ee7b7;
-      font-size: 13px;
-      padding: 6px 14px;
-      border-radius: 999px;
-      margin-bottom: 12px;
-      line-height: 1.4;
-    }
-    .status-pill.standby { background: rgba(148, 163, 184, 0.15); border-color: #64748b; color: #e2e8f0; }
-    .status-pill.awake { background: rgba(59, 130, 246, 0.22); border-color: #60a5fa; color: #93c5fd; font-weight: 700; }
-    .status-pill.recording { background: rgba(239, 68, 68, 0.2); border-color: #f87171; color: #fecaca; font-weight: 700; }
-    .status-pill.speaking { background: rgba(245, 158, 11, 0.2); border-color: #fbbf24; color: #fcd34d; font-weight: 700; }
+  /* Main Container */
+  main {
+    flex: 1;
+    padding: 14px 14px 86px 14px;
+    max-width: 1180px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
-    .timer-display {
-      font-size: 44px;
-      font-weight: 800;
-      letter-spacing: 2px;
-      font-variant-numeric: tabular-nums;
-      margin: 4px 0 8px;
-    }
-    .mic-wrapper {
-      position: relative;
-      width: 136px;
-      height: 136px;
-      margin: 10px auto 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .pulse-ring {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      background: var(--green-main);
-      opacity: 0;
-      pointer-events: none;
-    }
-    .mic-wrapper.is-standby .pulse-ring { background: #64748b; animation: pulse 2.8s infinite ease-out; }
-    .mic-wrapper.is-awake .pulse-ring { background: var(--blue-listen); animation: pulse 1.3s infinite ease-out; }
-    .mic-wrapper.is-recording .pulse-ring { background: var(--red-alert); animation: pulse 1.1s infinite ease-out; }
-    @keyframes pulse {
-      0% { transform: scale(0.95); opacity: 0.6; }
-      100% { transform: scale(1.45); opacity: 0; }
-    }
-    .mic-btn {
-      position: relative;
-      z-index: 2;
-      width: 124px;
-      height: 124px;
-      border-radius: 50%;
-      border: none;
-      background: #334155;
-      color: #f8fafc;
-      font-size: 14px;
-      font-weight: 800;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      cursor: pointer;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-      padding: 8px;
-    }
-    .mic-btn.state-ready { background: radial-gradient(circle at 30% 30%, #34d399, #059669); color: #ffffff; }
-    .mic-btn.state-standby { background: radial-gradient(circle at 30% 30%, #475569, #1e293b); border: 2px solid #94a3b8; color: #f8fafc; }
-    .mic-btn.state-awake { background: radial-gradient(circle at 30% 30%, #60a5fa, #2563eb); color: #ffffff; }
-    .mic-btn.state-recording { background: radial-gradient(circle at 30% 30%, #f87171, #dc2626); color: #ffffff; }
-    .mic-btn.state-speaking { background: radial-gradient(circle at 30% 30%, #fbbf24, #d97706); color: #ffffff; }
-    .mic-icon { font-size: 32px; line-height: 1; }
-    .hint-sub { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-top: 6px; }
+  /* Cards & Buttons */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent-teal);
+    margin: 0 0 10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .btn {
+    border: none;
+    border-radius: 10px;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+  }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn-primary { background: var(--accent-green); color: #042f2e; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-green-hover); color: #fff; }
+  .btn-secondary { background: #1e293b; color: var(--text-primary); border: 1px solid var(--border-subtle); }
+  .btn-danger { background: var(--danger); color: #fff; }
 
-    /* ===== 錄音批次模式專屬：系統回覆顯示區塊（無即時口說轉換框） ===== */
-    .batch-reply-card {
-      background: linear-gradient(145deg, #0f172a, #1e293b);
-      border: 1px solid #10b981;
-      border-radius: 16px;
-      padding: 14px 16px;
-      margin-bottom: 12px;
-    }
-    .batch-reply-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-      color: #6ee7b7;
-      font-weight: 700;
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #334155;
-    }
-    .batch-reply-body {
-      font-size: 15px;
-      line-height: 1.65;
-      color: #f8fafc;
-      white-space: pre-wrap;
-      min-height: 90px;
-    }
-    .replay-voice-btn {
-      background: rgba(16, 185, 129, 0.2);
-      border: 1px solid #10b981;
-      color: #a7f3d0;
-      border-radius: 8px;
-      padding: 4px 10px;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-    }
+  /* Bottom Navigation */
+  nav.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #0f1926;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    justify-content: space-around;
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    z-index: 45;
+  }
+  .nav-item {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 2px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .nav-item.active { color: var(--accent-green); }
+  .nav-item.hidden-role { display: none !important; }
+  .nav-icon { font-size: 18px; line-height: 1; }
 
-    .banner {
-      border-radius: 12px;
-      padding: 10px 14px;
-      font-size: 13px;
-      margin-bottom: 12px;
-      display: none;
-      align-items: center;
-      gap: 8px;
-      word-break: break-all;
-    }
-    .banner.error { display: flex; background: rgba(127, 29, 29, 0.45); border: 1px solid #ef4444; color: #fecaca; }
-    .banner.success { display: flex; background: rgba(6, 78, 59, 0.55); border: 1px solid #10b981; color: #a7f3d0; }
+  /* ================= 1. DASHBOARD FLOORPLAN ================= */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 640px) {
+    .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  .kpi-box {
+    background: var(--bg-card-alt);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 8px 10px;
+    text-align: center;
+  }
+  .kpi-num { font-size: 20px; font-weight: 800; }
+  .kpi-lbl { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+  .legend-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background: var(--bg-card-alt);
+    border-radius: 8px;
+  }
+  .legend-dot {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .swatch { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+  .map-scroll-wrap {
+    width: 100%;
+    overflow-x: auto;
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 6px;
+    border: 2px solid var(--border-subtle);
+  }
+  .map-scroll-wrap svg {
+    min-width: 920px;
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .pen-clickable { cursor: pointer; transition: opacity 0.15s; }
+  .pen-clickable:hover { opacity: 0.78; stroke-width: 2.2px !important; }
 
-    /* ===== 頁籤 2：每日檢核表樣式 ===== */
-    .section-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .section-title { font-size: 16px; font-weight: 700; color: #f8fafc; }
-    .btn-refresh { background: #1e293b; border: 1px solid #475569; color: #e2e8f0; border-radius: 8px; padding: 6px 12px; font-size: 12.5px; cursor: pointer; }
-    .alert-box { background: rgba(185, 28, 28, 0.25); border: 1px solid #ef4444; border-radius: 12px; padding: 12px; margin-bottom: 12px; }
-    .alert-box-title { color: #fca5a5; font-weight: 700; font-size: 13.5px; margin-bottom: 6px; }
-    .alert-item { font-size: 13px; color: #fee2e2; margin-bottom: 4px; line-height: 1.45; }
-    .todo-card { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-    .todo-card.done { opacity: 0.55; border-color: #10b981; }
-    .todo-tag { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 6px; background: rgba(59, 130, 246, 0.2); color: #93c5fd; font-weight: 700; margin-bottom: 4px; }
-    .todo-title { font-size: 14px; font-weight: 700; color: #f8fafc; margin-bottom: 3px; }
-    .todo-desc { font-size: 12.5px; color: #94a3b8; line-height: 1.4; }
-    .btn-done { background: var(--green-main); color: #06281e; border: none; border-radius: 8px; padding: 8px 10px; font-size: 12px; font-weight: 800; white-space: nowrap; cursor: pointer; }
-    .btn-done.completed { background: #334155; color: #94a3b8; cursor: default; }
-    .sop-card { background: #172554; border: 1px solid #3b82f6; border-radius: 12px; padding: 12px; margin-top: 14px; font-size: 12.5px; line-height: 1.55; color: #dbeafe; }
+  /* ================= 2. VOICE WORKSPACE ================= */
+  .voice-hero {
+    text-align: center;
+    padding: 18px 12px;
+  }
+  .voice-btn-circle {
+    width: 118px;
+    height: 118px;
+    border-radius: 50%;
+    border: none;
+    background: radial-gradient(circle at 30% 30%, #34d399, #059669);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 800;
+    box-shadow: 0 0 28px rgba(16,185,129,0.4);
+    cursor: pointer;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: transform 0.15s, box-shadow 0.2s;
+  }
+  .voice-btn-circle.listening {
+    background: radial-gradient(circle at 30% 30%, #f87171, #dc2626);
+    box-shadow: 0 0 34px rgba(239,68,68,0.65);
+    animation: pulseRing 1.4s infinite;
+  }
+  @keyframes pulseRing {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+  }
+  .voice-status-pill {
+    display: inline-block;
+    margin-top: 12px;
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    background: #1e293b;
+    color: #94a3b8;
+    border: 1px solid var(--border-subtle);
+  }
+  .voice-status-pill.active {
+    background: rgba(239,68,68,0.18);
+    color: #fca5a5;
+    border-color: #ef4444;
+  }
+  .buffer-textarea {
+    width: 100%;
+    min-height: 150px;
+    background: #0b131e;
+    color: #f8fafc;
+    border: 1.5px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 15px;
+    line-height: 1.6;
+    resize: vertical;
+  }
+  .buffer-textarea:disabled {
+    background: #111827;
+    color: #93c5fd;
+    border-color: #ef4444;
+    cursor: not-allowed;
+  }
 
-    /* ===== 頁籤 3：A4 日誌預覽與列印樣式 ===== */
-    .log-toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
-    .btn-print-a4 { flex: 1; background: #10b981; color: #06281e; border: none; border-radius: 10px; padding: 10px; font-size: 14px; font-weight: 800; cursor: pointer; }
-    .a4-paper { background: #ffffff; color: #1e293b; border-radius: 8px; padding: 16px 14px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); font-size: 12.5px; line-height: 1.45; }
-    .a4-header { background: #1b4d3e; color: #ffffff; padding: 10px 12px; border-radius: 4px; margin-bottom: 10px; }
-    .a4-header h1 { margin: 0 0 3px 0; font-size: 16px; }
-    .a4-header .sub { font-size: 11px; color: #d1fae5; }
-    .a4-h2 { font-size: 13px; font-weight: 700; color: #1b4d3e; border-left: 4px solid #1b4d3e; padding-left: 6px; margin: 10px 0 5px 0; }
-    .a4-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 12px; }
-    .a4-table th, .a4-table td { border: 1px solid #cbd5e1; padding: 5px 7px; vertical-align: top; text-align: left; }
-    .a4-table th { background: #f1f5f9; color: #0f172a; font-weight: 700; }
-    .a4-label { width: 28%; background: #f8fafc; font-weight: 600; color: #334155; }
+  /* ================= 3. CHECKLIST & SLIDE-TO-CONFIRM ================= */
+  .chk-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--bg-card-alt);
+    border: 1px solid var(--border-subtle);
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chk-item.staged {
+    background: rgba(16,185,129,0.14);
+    border-color: var(--accent-green);
+  }
+  .chk-box-ui {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 2px solid #64748b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-weight: 900;
+    color: transparent;
+  }
+  .chk-item.staged .chk-box-ui {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    color: #042f2e;
+  }
+  .slide-track {
+    position: relative;
+    width: 100%;
+    height: 52px;
+    background: #0b131e;
+    border: 1.5px solid var(--accent-green);
+    border-radius: 26px;
+    overflow: hidden;
+    user-select: none;
+    touch-action: pan-y;
+    margin-top: 12px;
+  }
+  .slide-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    color: #34d399;
+    pointer-events: none;
+  }
+  .slide-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    color: #042f2e;
+    font-size: 18px;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  }
 
-    /* 底部導覽列 */
-    .bottom-nav {
-      position: fixed; bottom: 0; left: 0; right: 0; height: 64px;
-      background: #0b1120; border-top: 1px solid var(--card-border);
-      display: grid; grid-template-columns: repeat(3, 1fr); z-index: 30;
-    }
-    .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px; gap: 3px; cursor: pointer; border: none; background: transparent; }
-    .nav-item.active { color: var(--green-main); font-weight: 700; }
+  /* ================= 4 & 5. REPORTS ================= */
+  .report-box {
+    width: 100%;
+    min-height: 280px;
+    background: #0b131e;
+    color: #e2e8f0;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 14px;
+    line-height: 1.65;
+    font-family: inherit;
+  }
 
-    @media print {
-      @page { size: A4; margin: 12mm; }
-      body { background: #ffffff !important; padding: 0 !important; }
-      .header, .bottom-nav, .log-toolbar, #view-voice, #view-checklist { display: none !important; }
-      #view-log { display: block !important; }
-      .container { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
-      .a4-paper { box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
-    }
-  </style>
+  /* ================= MODALS (AUTH / FACE ID / CONFIRM) ================= */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 10, 18, 0.88);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    padding: 20px;
+    width: 100%;
+    max-width: 430px;
+    max-height: 92vh;
+    overflow-y: auto;
+  }
+  .face-ring-wrap {
+    position: relative;
+    width: 210px;
+    height: 210px;
+    margin: 12px auto;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid var(--accent-teal);
+    box-shadow: 0 0 24px rgba(20,184,166,0.35);
+    background: #000;
+  }
+  .face-ring-wrap video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+  .face-guide-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px dashed rgba(255,255,255,0.45);
+    pointer-events: none;
+  }
+  .input-field {
+    width: 100%;
+    background: #0b131e;
+    border: 1px solid var(--border-subtle);
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 9px;
+    font-size: 15px;
+    margin-top: 5px;
+    margin-bottom: 12px;
+  }
+  .modal-btn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .btn-cancel-red {
+    background: #1e293b;
+    color: #f87171;
+    border: 1.5px solid #ef4444;
+    font-weight: 800;
+  }
+</style>
 </head>
 <body>
 
-  <div class="header">
-    <div>
-      <div class="header-title">東寶牧場 | 現場作業系統</div>
-      <div class="header-sub" id="todayLabel">今日日期：載入中...</div>
+<header>
+  <div>
+    <div class="brand-title">東寶牧場｜現場作業系統</div>
+    <div class="brand-sub" id="headerDate">載入中...</div>
+  </div>
+  <div class="header-actions">
+    <button class="btn-sm-danger" onclick="clearLocalCache()">🧹 清快取</button>
+    <div class="badge-user" onclick="openAuthModal()">
+      <span id="currentUserName">未登入</span>
+      <span class="role-pill role-visitor" id="currentUserRole">訪客</span>
     </div>
-    <div style="display:flex; align-items:center; gap:6px;">
-      <button onclick="forceClearCacheAndCookies()" style="background:#7f1d1d; border:1px solid #ef4444; color:#fecaca; padding:4px 8px; border-radius:999px; font-size:11.5px; font-weight:700; cursor:pointer;">
-        🧹 清快取
+  </div>
+</header>
+
+<main>
+  <!-- ==================== TAB 1: DASHBOARD ==================== -->
+  <section id="tab-dashboard" class="tab-panel active">
+    <div class="kpi-grid">
+      <div class="kpi-box">
+        <div class="kpi-num" style="color:#34d399" id="kpiNormal">-</div>
+        <div class="kpi-lbl">正常在欄</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-num" style="color:#f472b6" id="kpiEstrus">-</div>
+        <div class="kpi-lbl">發情／返情</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-num" style="color:#fb923c" id="kpiAbnormal">-</div>
+        <div class="kpi-lbl">觀察／異常</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-num" style="color:#facc15" id="kpiDue">-</div>
+        <div class="kpi-lbl">今日到期提醒</div>
+      </div>
+      <div class="kpi-box">
+        <div class="kpi-num" style="color:#94a3b8" id="kpiEmpty">-</div>
+        <div class="kpi-lbl">空欄待用</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>🗺️ 全場即時互動平面圖（點擊任一豬欄查看明細）</span>
+        <button class="btn btn-secondary" style="padding:5px 10px;font-size:12px;" onclick="refreshAllData()">🔄 同步資料</button>
+      </div>
+      <div class="legend-bar">
+        <span class="legend-dot"><i class="swatch" style="background:#22c55e"></i>正常</span>
+        <span class="legend-dot"><i class="swatch" style="background:#f472b6"></i>發情／返情</span>
+        <span class="legend-dot"><i class="swatch" style="background:#fb923c"></i>觀察／生病／弱仔</span>
+        <span class="legend-dot"><i class="swatch" style="background:#facc15"></i>到期作業／待產</span>
+        <span class="legend-dot"><i class="swatch" style="background:#e2e8f0"></i>空欄</span>
+      </div>
+      <div class="map-scroll-wrap" id="floorplanContainer">
+        <!-- SVG 動態由 JS 依據 A5~A15 併欄狀態與各欄燈號即時渲染 -->
+      </div>
+    </div>
+
+    <div class="card" id="envSummaryCard">
+      <div class="card-title"><span>🌡️ 最新環境與收班飼料存量概況</span></div>
+      <div id="envSummaryBody" style="font-size:13.5px;color:#cbd5e1;line-height:1.7;">讀取中...</div>
+    </div>
+  </section>
+
+  <!-- ==================== TAB 2: 語音作業 ==================== -->
+  <section id="tab-voice" class="tab-panel">
+    <div class="card voice-hero">
+      <div style="font-size:13px;color:#94a3b8;margin-bottom:14px;">
+        免喚醒詞・純前端即時聽寫・結束自動濾除「呃、那個、嗯」等贅詞
+      </div>
+      <button id="btnVoiceToggle" class="voice-btn-circle" onclick="toggleVoiceInput()">
+        <span style="font-size:32px;" id="voiceBtnIcon">🎙️</span>
+        <span id="voiceBtnText">開啟語音輸入</span>
       </button>
-      <div class="operator-badge">👤 李宥緯</div>
+      <div>
+        <span id="voiceStatusPill" class="voice-status-pill">待命模式（點擊上方按鈕立即開始）</span>
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-top:8px;">
+        聆聽中可隨時口語說出「<b>結束語音</b>」或「<b>結束李宥緯</b>」自動停止並整理文本
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <span>📝 語音累積暫存區（整理後文本・可多次追加）</span>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="clearVoiceBuffer()">清空暫存</button>
+      </div>
+      <textarea id="voiceBufferBox" class="buffer-textarea" placeholder="開啟語音輸入後，系統會即時將口述內容轉入此處；結束語音時自動濾除語助詞與停頓贅字。您可多次開啟語音繼續追加，確認無誤後再按下方「送出」。"></textarea>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button id="btnVoiceSubmit" class="btn btn-primary" style="flex:1;padding:13px;" onclick="promptVoiceSubmit()">
+          📤 批次送出寫入資料表
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>📋 批次寫入執行結果</span></div>
+      <div id="voiceResultLog" style="font-size:13.5px;color:#94a3b8;line-height:1.6;">尚未送出批次指令。</div>
+    </div>
+  </section>
+
+  <!-- ==================== TAB 3: 每日檢核表 ==================== -->
+  <section id="tab-checklist" class="tab-panel">
+    <div class="card">
+      <div class="card-title">
+        <span>☑️ 今日到期與重點檢核任務（可點擊勾選／再點還原）</span>
+        <span id="chkCountBadge" style="font-size:12px;color:#fbbf24;">已選 0 項</span>
+      </div>
+      <div style="font-size:12.5px;color:#94a3b8;margin-bottom:12px;">
+        勾選「完成」後僅暫存標記（誤觸可再點一次還原），須點擊下方「確認送出」並完成滑動驗證才會寫入資料庫。
+      </div>
+      <div id="checklistContainer">載入檢核項目中...</div>
+      <button id="btnChecklistOpenConfirm" class="btn btn-primary" style="width:100%;margin-top:8px;padding:13px;" onclick="openChecklistConfirmModal()" disabled>
+        🔒 確認送出（請先勾選完成項目）
+      </button>
+    </div>
+  </section>
+
+  <!-- ==================== TAB 4: 工作日誌 ==================== -->
+  <section id="tab-worklog" class="tab-panel">
+    <div class="card">
+      <div class="card-title">
+        <span>📄 每日完整工作日誌（東寶牧場-工作日誌）</span>
+        <button class="btn btn-secondary" style="padding:5px 10px;font-size:12px;" onclick="copyTextarea('fullWorkLogBox')">📋 複製全文</button>
+      </div>
+      <textarea id="fullWorkLogBox" class="report-box" readonly></textarea>
+    </div>
+  </section>
+
+  <!-- ==================== TAB 5: 重點回報 (老闆回報) ==================== -->
+  <section id="tab-bossreport" class="tab-panel">
+    <div class="card">
+      <div class="card-title">
+        <span>📱 老闆重點回報（LINE 精簡條列版・可直接微調複製）</span>
+        <button class="btn btn-primary" style="padding:5px 12px;font-size:12px;" onclick="copyTextarea('bossReportBox')">📋 一鍵複製傳 LINE</button>
+      </div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">
+        已自動套用四大過濾原則：僅留跨階段重大異動、異常／死亡／發情／疫苗去勢、全中文舍名、零系統雜訊。
+      </div>
+      <textarea id="bossReportBox" class="report-box"></textarea>
+    </div>
+  </section>
+</main>
+
+<!-- ==================== BOTTOM NAVIGATION (5 TABS) ==================== -->
+<nav class="bottom-nav">
+  <button class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard', this)">
+    <span class="nav-icon">🗺️</span>
+    <span>Dashboard</span>
+  </button>
+  <button class="nav-item editor-only" data-tab="voice" onclick="switchTab('voice', this)">
+    <span class="nav-icon">🎙️</span>
+    <span>語音作業</span>
+  </button>
+  <button class="nav-item editor-only" data-tab="checklist" onclick="switchTab('checklist', this)">
+    <span class="nav-icon">☑️</span>
+    <span>每日檢核表</span>
+  </button>
+  <button class="nav-item editor-only" data-tab="worklog" onclick="switchTab('worklog', this)">
+    <span class="nav-icon">📄</span>
+    <span>工作日誌</span>
+  </button>
+  <button class="nav-item editor-only" data-tab="bossreport" onclick="switchTab('bossreport', this)">
+    <span class="nav-icon">📱</span>
+    <span>重點回報</span>
+  </button>
+</nav>
+
+<!-- ==================== MODAL 1: 豬欄明細彈窗 ==================== -->
+<div id="penDetailModal" class="modal-backdrop" onclick="if(event.target===this) closeModal('penDetailModal')">
+  <div class="modal-card">
+    <div class="card-title">
+      <span id="penModalTitle">欄號明細</span>
+      <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="closeModal('penDetailModal')">關閉</button>
+    </div>
+    <div id="penModalBody" style="font-size:14px;line-height:1.75;color:#e2e8f0;"></div>
+  </div>
+</div>
+
+<!-- ==================== MODAL 2: 語音送出警告（確認在左、紅字取消在右） ==================== -->
+<div id="voiceConfirmModal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3 style="margin:0 0 8px 0;color:#fbbf24;font-size:18px;">⚠️ 別著急，請確認輸入無誤喔</h3>
+    <p style="margin:0 0 10px 0;font-size:13.5px;color:#cbd5e1;">確認後將立即把以下整理內容寫入《東寶牧場｜現場管理資料庫_v2》：</p>
+    <div id="voiceConfirmPreview" style="background:#0b131e;border:1px solid #334155;border-radius:8px;padding:10px;font-size:14px;max-height:180px;overflow-y:auto;white-space:pre-wrap;"></div>
+    <div class="modal-btn-row">
+      <!-- 規範要求：「確認」鍵在左邊，「取消」鍵用紅字在右邊 -->
+      <button class="btn btn-primary" onclick="executeVoiceBatchSubmit()">確認</button>
+      <button class="btn btn-cancel-red" onclick="closeModal('voiceConfirmModal')">取消</button>
     </div>
   </div>
+</div>
 
-  <div class="container">
-    <!-- ==================== 頁籤 1：語音作業中樞 ==================== -->
-    <div class="tab-view active" id="view-voice">
-      <!-- 互斥斷點模式切換 -->
-      <div class="mode-switch-bar">
-        <button class="mode-tab-btn active" id="tabBatchBtn" onclick="selectWorkMode('batch')">🎙️ 錄音批次輸入（桌前彙整）</button>
-        <button class="mode-tab-btn" id="tabWakeBtn" onclick="selectWorkMode('wake')">🎧 聆聽模式（Hi 李宥緯喚醒）</button>
+<!-- ==================== MODAL 3: 檢核表防誤觸滑動確認 ==================== -->
+<div id="checklistConfirmModal" class="modal-backdrop">
+  <div class="modal-card">
+    <h3 style="margin:0 0 8px 0;color:#34d399;font-size:17px;">🔒 防誤觸二次確認</h3>
+    <p style="margin:0 0 8px 0;font-size:13px;color:#cbd5e1;">您即將標記以下項目為「已完成」並寫入資料庫：</p>
+    <div id="checklistConfirmList" style="background:#0b131e;border:1px solid #334155;border-radius:8px;padding:10px;font-size:13px;max-height:160px;overflow-y:auto;line-height:1.6;"></div>
+    <div class="slide-track" id="slideTrack">
+      <div class="slide-label" id="slideLabel">➔ 向右滑動到底確認送出</div>
+      <div class="slide-thumb" id="slideThumb">➔</div>
+    </div>
+    <button class="btn btn-secondary" style="width:100%;margin-top:12px;" onclick="closeModal('checklistConfirmModal')">返回修改勾選</button>
+  </div>
+</div>
+
+<!-- ==================== MODAL 4: 人臉辨識註冊與登入 ==================== -->
+<div id="authModal" class="modal-backdrop">
+  <div class="modal-card">
+    <div class="card-title">
+      <span>🔐 現場人員身分驗證（人臉辨識 / PIN）</span>
+      <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="closeAuthModal()">略過(訪客)</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button id="tabAuthLogin" class="btn btn-primary" style="flex:1;padding:8px;" onclick="switchAuthMode('login')">掃臉 / PIN 登入</button>
+      <button id="tabAuthRegister" class="btn btn-secondary" style="flex:1;padding:8px;" onclick="switchAuthMode('register')">首次人臉註冊</button>
+    </div>
+
+    <!-- 登入模式 -->
+    <div id="authLoginPane">
+      <div class="face-ring-wrap">
+        <video id="loginVideo" autoplay playsinline muted></video>
+        <div class="face-guide-overlay"></div>
       </div>
-
-      <!-- 面板 A：錄音批次輸入（限時 3 分鐘 ＋ 系統回覆顯示區塊，無即時轉文字框） -->
-      <div id="panelBatch">
-        <div class="main-card">
-          <div>
-            <span class="status-pill" id="batchStatusPill">點擊下方按鈕開始批次口述（單次最長 3 分鐘）</span>
-          </div>
-          <div class="timer-display" id="timerDisplay">03:00</div>
-          <div class="mic-wrapper" id="batchMicWrapper">
-            <div class="pulse-ring"></div>
-            <button class="mic-btn state-ready" id="batchMicBtn" onclick="toggleBatchRecording()">
-              <span class="mic-icon" id="batchMicIcon">🎙️</span>
-              <span id="batchMicLabel">開始批次錄音</span>
-            </button>
-          </div>
-          <div class="hint-sub">適合一次口述多項交辦清單（增、刪、改、查），錄完按下停止即自動逐條寫入並顯示結果。</div>
-        </div>
-
-        <div class="banner" id="statusBanner"></div>
-
-        <!-- 系統回覆顯示區塊（取代原本的即時語音轉文字框） -->
-        <div class="batch-reply-card">
-          <div class="batch-reply-header">
-            <span>📋 系統執行回覆與試算表同步結果</span>
-            <button class="replay-voice-btn" onclick="replayLastSpeech()">🔊 語音朗讀回覆</button>
-          </div>
-          <div class="batch-reply-body" id="batchReplyBox">等待批次錄音輸入...
-
-範例口述：「C20今天開始限飼每餐改成0.8公斤黃色飼料，B8跟B9今天都有發情跡象幫我列入配種觀察，D1確認一下預產期提前七天提醒我移到待產舍，A8今天食慾還是不好列入特殊照護，保二舍今天有移欄記得更新欄位資料明天早上檢核表要顯示出來。」</div>
-        </div>
+      <div id="loginScanStatus" style="text-align:center;font-size:13px;color:#34d399;margin-bottom:10px;">
+        請將臉部對準圓框，系統自動掃臉辨識中...
       </div>
-
-      <!-- 面板 B：免持喚醒聆聽模式（純語音互動，無任何文字輸入/顯示框） -->
-      <div id="panelWake" style="display:none;">
-        <div class="main-card" style="padding: 28px 16px;">
-          <div>
-            <span class="status-pill standby" id="wakeStatusPill">聆聽模式已關閉（麥克風已完全釋放）</span>
-          </div>
-          <div class="mic-wrapper" id="wakeMicWrapper" style="width:164px; height:164px; margin:20px auto;">
-            <div class="pulse-ring"></div>
-            <button class="mic-btn" id="wakeToggleBtn" style="width:152px; height:152px; font-size:16px;" onclick="toggleWakeListening()">
-              <span class="mic-icon" id="wakeIcon" style="font-size:38px;">🔇</span>
-              <span id="wakeLabel">聆聽模式：關閉</span>
-            </button>
-          </div>
-          <div class="hint-sub" id="wakeHintText">
-            點擊上方按鈕開啟後，請直接說出喚醒詞 <strong>「Hi，李宥緯」</strong>。<br/>
-            喚醒後即可口述增刪改查或閒聊，系統會複誦確認並詢問是否還有其他指令，全語音閉環互動。
-          </div>
-        </div>
+      <div style="border-top:1px solid #23364d;padding-top:10px;margin-top:8px;">
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">光線昏暗備援：選擇帳號並輸入 4 碼 PIN 碼登入</div>
+        <select id="loginUserSelect" class="input-field"></select>
+        <input id="loginPinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" class="input-field" placeholder="請輸入 4 碼數字 PIN 碼" />
+        <button class="btn btn-secondary" style="width:100%;" onclick="submitPinLogin()">使用 4 碼 PIN 碼登入</button>
       </div>
     </div>
 
-    <!-- ==================== 頁籤 2：每日檢核表 ==================== -->
-    <div class="tab-view" id="view-checklist">
-      <div class="section-header-bar">
-        <div class="section-title">📋 每日現場檢核與追蹤清單</div>
-        <button class="btn-refresh" onclick="loadChecklistData()">🔄 重新同步</button>
-      </div>
-      <div class="alert-box" id="dueAlertBox">
-        <div class="alert-box-title">🚨 預產期 ±3 天警戒清查（直到回報已分娩才解除）</div>
-        <div id="dueAlertList" class="alert-item">載入中...</div>
-      </div>
-      <div id="todoContainer">
-        <div style="text-align:center; color:#94a3b8; padding:24px;">正在同步最新檢核項目...</div>
-      </div>
-      <div class="sop-card">
-        <strong>📌 母豬分娩處置 SOP 現場速查：</strong><br/>
-        1. <strong>產程滿 4 小時</strong>（自第 1 隻仔豬產下起算）：施打「寶島億生素（催產）5ml ＋ 美吉命（營養針）15ml」混合一針，另加第二針「OTC 5ml」。<br/>
-        2. <strong>產程滿 6 小時仍有小豬未產出</strong>：執行人工助產（伸手進陰戶輕輕拖拽），隨即施打第二次催產「寶島億生素 5ml」，直到胎衣（胎盤）完全排出才算分娩結束。<br/>
-        3. <strong>分娩隔天食慾警戒</strong>：隔天若完全不吃，須立即檢查是否有胎衣或惡露未排乾淨導致子宮發炎，並可施打第三次催產「寶島億生素 5ml」。
-      </div>
-    </div>
+    <!-- 首次註冊模式（仿 iPhone Face ID 多角度採集） -->
+    <div id="authRegisterPane" style="display:none;">
+      <label style="font-size:13px;color:#cbd5e1;">1. 使用者代號（姓名）</label>
+      <input id="regNameInput" type="text" class="input-field" placeholder="例如：李宥緯" />
 
-    <!-- ==================== 頁籤 3：A4 日誌 ==================== -->
-    <div class="tab-view" id="view-log">
-      <div class="log-toolbar">
-        <button class="btn-refresh" onclick="loadA4LogData()">🔄 重新抓取今日最新紀錄</button>
-        <button class="btn-print-a4" onclick="window.print()">🖨️ 匯出 / 列印 A4 PDF</button>
+      <label style="font-size:13px;color:#cbd5e1;">2. 設置 4 碼數字 PIN 碼（備援用）</label>
+      <input id="regPinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" class="input-field" placeholder="請輸入 4 位數字" />
+
+      <label style="font-size:13px;color:#cbd5e1;">3. 前鏡頭多角度人臉特徵採集（仿 Face ID）</label>
+      <div class="face-ring-wrap">
+        <video id="regVideo" autoplay playsinline muted></video>
+        <div class="face-guide-overlay"></div>
       </div>
-      <div class="a4-paper" id="a4Paper">
-        <div class="a4-header">
-          <h1 id="a4DocTitle">東寶牧場-工作日誌_載入中</h1>
-          <div class="sub" id="a4DocSub">紀錄時間：載入中 ｜ 填報人員：李宥緯</div>
-        </div>
-        <div class="a4-h2">一、基本資訊與環境溫控</div>
-        <table class="a4-table">
-          <tr><td class="a4-label">日誌標題</td><td id="a4TitleCell">-</td></tr>
-          <tr><td class="a4-label">天氣與帆布評估</td><td id="a4WeatherCell">【待現場確認】</td></tr>
-          <tr><td class="a4-label">分娩舍室內溫度</td><td id="a4TempCell">【待現場確認】</td></tr>
-          <tr><td class="a4-label">低溫控速旋鈕刻度</td><td id="a4KnobCell">【待現場確認】</td></tr>
-        </table>
-        <div class="a4-h2">二、今日完成工作</div>
-        <table class="a4-table">
-          <thead><tr><th style="width:28%;">作業分類</th><th>具體執行內容</th></tr></thead>
-          <tbody id="a4DoneBody"><tr><td colspan="2">載入中...</td></tr></tbody>
-        </table>
-        <div class="a4-h2">三、收班飼料存量</div>
-        <table class="a4-table">
-          <thead><tr><th style="width:28%;">飼料品項</th><th>收班實盤存量</th></tr></thead>
-          <tbody id="a4FeedBody">
-            <tr><td class="a4-label">黃色（母前料）</td><td id="feedYellow">【待現場確認】</td></tr>
-            <tr><td class="a4-label">紅色（母後料）</td><td id="feedRed">【待現場確認】</td></tr>
-            <tr><td class="a4-label">白色（哺乳料）</td><td id="feedWhite">【待現場確認】</td></tr>
-            <tr><td class="a4-label">人工乳（粉）</td><td id="feedMilk">【待現場確認】</td></tr>
-          </tbody>
-        </table>
-        <div class="a4-h2">四、巡視、用藥與異常觀察紀錄</div>
-        <table class="a4-table">
-          <thead><tr><th style="width:28%;">紀錄類別</th><th>具體內容</th></tr></thead>
-          <tbody id="a4ObsBody"><tr><td colspan="2">載入中...</td></tr></tbody>
-        </table>
-        <div class="a4-h2">五、明日與近期預告（含未來三天預產期 ±3 天清查）</div>
-        <table class="a4-table">
-          <thead><tr><th style="width:28%;">預告類別</th><th>預定執行／觀察內容</th></tr></thead>
-          <tbody id="a4FutureBody"><tr><td colspan="2">載入中...</td></tr></tbody>
-        </table>
+      <div id="regFacePrompt" style="text-align:center;font-size:13.5px;font-weight:700;color:#fbbf24;margin-bottom:8px;">
+        點擊下方按鈕啟動前鏡頭並依指示轉動臉部
       </div>
+      <div style="background:#0b131e;border-radius:8px;height:8px;overflow:hidden;margin-bottom:10px;">
+        <div id="regProgressBar" style="width:0%;height:100%;background:#10b981;transition:width 0.25s;"></div>
+      </div>
+      <button id="btnStartFaceEnroll" class="btn btn-primary" style="width:100%;" onclick="startFaceEnrollment()">
+        📷 開始前鏡頭採集人臉特徵
+      </button>
     </div>
   </div>
+</div>
 
-  <nav class="bottom-nav">
-    <button class="nav-item active" id="nav-voice" onclick="switchTab('voice')"><span style="font-size:18px;">🎙️</span><span>語音作業</span></button>
-    <button class="nav-item" id="nav-checklist" onclick="switchTab('checklist')"><span style="font-size:18px;">📋</span><span>每日檢核表</span></button>
-    <button class="nav-item" id="nav-log" onclick="switchTab('log')"><span style="font-size:18px;">📄</span><span>A4 日誌</span></button>
-  </nav>
+<script>
+/**
+ * 請將部署後的 Google Apps Script Web App URL 貼於下方：
+ */
+const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby2TBG58_fy0K2oKH4ceLeb7wmfhZ_VoBnIV4-0-imRD4majFPo_tm_NlSzVI6-UwIc/exec';
 
-  <script>
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxb7X1FiHYGkMogVPrDiSeSnKJrO-4ALKj65ugvNtJictfM7IRFhRulE-wLF4kHZSOy/exec";
+let appState = {
+  currentUser: JSON.parse(localStorage.getItem('dongbao_user') || 'null'),
+  users: [],
+  dashboard: null,
+  checklist: [],
+  stagedChecklistIds: new Set(),
+  reports: null,
+  isListening: false,
+  recognition: null,
+  faceLandmarker: null,
+  activeStream: null,
+  enrolledDescriptors: []
+};
 
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const todayStr = `${yyyy}-${mm}-${dd}`;
-    const todayCompact = `${yyyy}${mm}${dd}`;
-    document.getElementById('todayLabel').textContent = `今日日期：${todayStr}`;
+/* ============================================================================
+ * 初始化與資料同步
+ * ==========================================================================*/
+window.addEventListener('DOMContentLoaded', async () => {
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  document.getElementById('headerDate').textContent = '今日日期：' + today;
 
-    // ==================== 共用：呼叫 GAS 後端 ====================
-    async function callGAS(actionName, payloadObj = {}) {
-      const fullPayload = { action: actionName, date: todayStr, operator: '李宥緯', ...payloadObj };
-      const res = await fetch(GAS_WEB_APP_URL, {
-        method: 'POST',
-        mode: 'cors',
-        redirect: 'follow',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(fullPayload)
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    }
+  applyRoleUI();
+  initSpeechRecognition();
+  initSlideToConfirm();
+  await refreshAllData();
 
-    // ==================== 同音字與欄號正規化（最新舍名：N保一、X保二、Y保三、Q肥一、P分娩） ====================
-    function normalizeFarmText(raw) {
-      return raw
-        .replace(/第二型|第2型|西\s*20|吸\s*20|C\s*二十/gi, 'C20')
-        .replace(/([A-Za-z])\s+(\d+)/g, '$1$2')
-        .replace(/(?:批|屁|P)\s*(\d+)/gi, 'P$1')
-        .replace(/(?:西|吸|C)\s*(\d+)/gi, 'C$1')
-        .replace(/(?:逼|比|B)\s*(\d+)/gi, 'B$1')
-        .replace(/(?:低|滴|D)\s*(\d+)/gi, 'D$1')
-        .replace(/(?:恩|N)\s*(\d+)/gi, 'N$1')
-        .replace(/(?:歪|Y)\s*(\d+)/gi, 'Y$1')
-        .replace(/(?:艾克斯|X)\s*(\d+)/gi, 'X$1')
-        .replace(/(?:Q|秋)\s*(\d+)/gi, 'Q$1');
-    }
+  if (!appState.currentUser) {
+    openAuthModal();
+  }
+});
 
-    function convertPenName(text) {
-      if (!text) return '';
-      return String(text)
-        .replace(/\bP(\d+)\b/gi, '分娩舍第$1欄')
-        .replace(/\bN(\d+)\b/gi, '保一舍第$1欄')
-        .replace(/\bX(\d+)\b/gi, '保二舍第$1欄')
-        .replace(/\bY(\d+)\b/gi, '保三舍第$1欄')
-        .replace(/\bQ(\d+)\b/gi, '肥一舍第$1欄');
-    }
+async function refreshAllData() {
+  if (!GAS_WEBAPP_URL || GAS_WEBAPP_URL.includes('YOUR_DEPLOYED')) {
+    renderFloorplanSVG({ pens: {}, mergedAPens: ['A5'], stats: { normal:0, estrus:0, abnormal:0, due:0, empty:0 } });
+    document.getElementById('envSummaryBody').innerHTML = '⚠️ 尚未設定 <code>GAS_WEBAPP_URL</code>，目前顯示平面圖預覽模式。請部署 <code>Code.gs</code> 後填入網址。';
+    return;
+  }
+  try {
+    const res = await fetch(GAS_WEBAPP_URL + '?action=init');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || '讀取失敗');
 
-    function sanitizeLogText(text) {
-      return convertPenName(text).replace(/早班/g, '開班');
-    }
+    appState.users = data.users || [];
+    appState.dashboard = data.dashboard;
+    appState.checklist = (data.checklist && data.checklist.items) ? data.checklist.items : [];
+    appState.reports = data.reports;
 
-    // ==================== 硬體麥克風互斥斷點控制器（絕不搶麥克風） ====================
-    let activeRecognition = null;
-    let isBatchRecording = false;
-    let batchTimerInterval = null;
-    let batchRemainingSec = 180;
-    let batchBufferText = '';
-    let batchInterimText = '';
-
-    let isWakeEnabled = false;
-    let isAwake = false;
-    let wakeSilenceTimer = null;
-    let wakeIdleTimeout = null;
-    let wakeCommandBuffer = '';
-    let wakeInterimText = '';
-    let lastSpokenText = '';
-
-    // 強制釋放並銷毀一切正在佔用麥克風的實例（斷點保護）
-    function releaseMicrophoneHardware() {
-      clearInterval(batchTimerInterval);
-      clearTimeout(wakeSilenceTimer);
-      clearTimeout(wakeIdleTimeout);
-      isBatchRecording = false;
-      isAwake = false;
-
-      if (activeRecognition) {
-        try {
-          activeRecognition.onresult = null;
-          activeRecognition.onend = null;
-          activeRecognition.onerror = null;
-          activeRecognition.stop();
-        } catch (e) {}
-        activeRecognition = null;
-      }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
+    // 同步更新目前登入者最新後台權限角色
+    if (appState.currentUser) {
+      const freshUser = appState.users.find(u => u.userId === appState.currentUser.userId);
+      if (freshUser) {
+        appState.currentUser.role = freshUser.role;
+        localStorage.setItem('dongbao_user', JSON.stringify(appState.currentUser));
       }
     }
 
-    // 切換頂部工作模式（自動執行硬體斷點切換）
-    function selectWorkMode(mode) {
-      isWakeEnabled = false;
-      releaseMicrophoneHardware();
-      updateBatchUI('idle');
-      updateWakeUI('off');
+    applyRoleUI();
+    renderDashboard();
+    renderChecklist();
+    renderReports();
+    populateLoginUserSelect();
+  } catch (err) {
+    console.error(err);
+    alert('資料同步發生錯誤：' + err.message);
+  }
+}
 
-      document.getElementById('tabBatchBtn').classList.toggle('active', mode === 'batch');
-      document.getElementById('tabWakeBtn').classList.toggle('active', mode === 'wake');
-      document.getElementById('panelBatch').style.display = (mode === 'batch') ? 'block' : 'none';
-      document.getElementById('panelWake').style.display = (mode === 'wake') ? 'block' : 'none';
-    }
+function applyRoleUI() {
+  const user = appState.currentUser;
+  const nameEl = document.getElementById('currentUserName');
+  const roleEl = document.getElementById('currentUserRole');
+  const isEditor = user && user.role === '操作人員';
 
-    // =========================================================================
-    // 模式 1：錄音批次輸入（桌前 3 分鐘口述交辦清單 -> 回覆顯示在下方區塊）
-    // =========================================================================
-    function toggleBatchRecording() {
-      if ('speechSynthesis' in window) window.speechSynthesis.speak(new SpeechSynthesisUtterance(''));
+  nameEl.textContent = user ? user.name : '訪客模式';
+  roleEl.textContent = isEditor ? '操作人員' : '訪客';
+  roleEl.className = 'role-pill ' + (isEditor ? 'role-editor' : 'role-visitor');
 
-      if (isBatchRecording) {
-        stopBatchAndSubmit();
-      } else {
-        startBatchRecording();
-      }
-    }
+  document.querySelectorAll('.editor-only').forEach(el => {
+    if (isEditor) el.classList.remove('hidden-role');
+    else el.classList.add('hidden-role');
+  });
 
-    function startBatchRecording() {
-      isWakeEnabled = false;
-      releaseMicrophoneHardware();
+  if (!isEditor) {
+    switchTab('dashboard', document.querySelector('.nav-item[data-tab="dashboard"]'));
+  }
+}
 
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        showBanner('error', '此瀏覽器不支援語音辨識。');
-        return;
-      }
+function switchTab(tabName, btnEl) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('tab-' + tabName);
+  if (panel) panel.classList.add('active');
+  if (btnEl) btnEl.classList.add('active');
+}
 
-      batchBufferText = '';
-      batchInterimText = '';
-      isBatchRecording = true;
-      updateBatchUI('recording');
+function clearLocalCache() {
+  if (confirm('確定要清除本機快取並重新同步最新資料嗎？')) {
+    localStorage.removeItem('dongbao_user');
+    location.reload();
+  }
+}
 
-      const recog = new SpeechRecognition();
-      recog.lang = 'zh-TW';
-      recog.continuous = true;
-      recog.interimResults = true;
+/* ============================================================================
+ * 一、前鏡頭人臉辨識註冊（仿 iPhone Face ID）與登入
+ * ==========================================================================*/
+async function ensureFaceLandmarker() {
+  if (appState.faceLandmarker) return appState.faceLandmarker;
+  if (!window.MediaPipeVision) throw new Error('人臉辨識引擎載入中，請稍候再試');
+  const { FaceLandmarker, FilesetResolver } = window.MediaPipeVision;
+  const filesetResolver = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  appState.faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      delegate: "GPU"
+    },
+    outputFaceBlendshapes: false,
+    runningMode: "VIDEO",
+    numFaces: 1
+  });
+  return appState.faceLandmarker;
+}
 
-      recog.onresult = (event) => {
-        let currentInterim = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            batchBufferText += event.results[i][0].transcript + '，';
-          } else {
-            currentInterim += event.results[i][0].transcript;
-          }
-        }
-        batchInterimText = currentInterim;
-      };
+function extractNormalizedDescriptor(landmarks) {
+  // 選取 32 個關鍵幾何特徵點（眼角、鼻尖、鼻翼、嘴角、下巴、眉弓、臉頰輪廓）正規化為比例向量
+  const keyIdx = [1, 4, 5, 6, 10, 33, 61, 70, 105, 107, 133, 152, 159, 145, 234, 263, 291, 300, 334, 336, 362, 386, 374, 454, 168, 197, 2, 98, 327, 17, 0, 13];
+  const nose = landmarks[1];
+  const leftCheek = landmarks[234];
+  const rightCheek = landmarks[454];
+  const scale = Math.hypot(rightCheek.x - leftCheek.x, rightCheek.y - leftCheek.y) || 0.1;
+  const vec = [];
+  keyIdx.forEach(idx => {
+    const pt = landmarks[idx];
+    vec.push(Number(((pt.x - nose.x) / scale).toFixed(4)));
+    vec.push(Number(((pt.y - nose.y) / scale).toFixed(4)));
+    vec.push(Number(((pt.z - nose.z) / scale).toFixed(4)));
+  });
+  return vec;
+}
 
-      recog.onerror = (event) => {
-        if (event.error === 'not-allowed') {
-          showBanner('error', '麥克風權限被拒，請檢查 Safari 設定。');
-          releaseMicrophoneHardware();
-          updateBatchUI('idle');
-        }
-      };
+function computeVectorDistance(v1, v2) {
+  if (!v1 || !v2 || v1.length !== v2.length) return 999;
+  let sum = 0;
+  for (let i = 0; i < v1.length; i++) {
+    const d = v1[i] - v2[i];
+    sum += d * d;
+  }
+  return Math.sqrt(sum / v1.length);
+}
 
-      recog.onend = () => {
-        if (batchInterimText) {
-          batchBufferText += batchInterimText + '，';
-          batchInterimText = '';
-        }
-        if (isBatchRecording && batchRemainingSec > 0) {
-          try { recog.start(); } catch (e) {}
-        }
-      };
+function stopCameraStream() {
+  if (appState.activeStream) {
+    appState.activeStream.getTracks().forEach(t => t.stop());
+    appState.activeStream = null;
+  }
+}
 
-      activeRecognition = recog;
-      try { recog.start(); } catch (e) {}
+function openAuthModal() {
+  document.getElementById('authModal').classList.add('open');
+  populateLoginUserSelect();
+  switchAuthMode('login');
+}
 
-      batchRemainingSec = 180;
-      updateBatchTimerText();
-      batchTimerInterval = setInterval(() => {
-        batchRemainingSec--;
-        updateBatchTimerText();
-        if (batchRemainingSec <= 0) {
-          stopBatchAndSubmit();
-        }
-      }, 1000);
-    }
+function closeAuthModal() {
+  stopCameraStream();
+  document.getElementById('authModal').classList.remove('open');
+}
 
-    async function stopBatchAndSubmit() {
-      const rawCombined = (batchBufferText + batchInterimText).replace(/，+$/, '').trim();
-      const captured = normalizeFarmText(rawCombined);
+function switchAuthMode(mode) {
+  stopCameraStream();
+  const isLogin = mode === 'login';
+  document.getElementById('authLoginPane').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('authRegisterPane').style.display = isLogin ? 'none' : 'block';
+  document.getElementById('tabAuthLogin').className = 'btn ' + (isLogin ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('tabAuthRegister').className = 'btn ' + (!isLogin ? 'btn-primary' : 'btn-secondary');
+  if (isLogin) startAutoFaceLogin();
+}
 
-      isBatchRecording = false;
-      clearInterval(batchTimerInterval);
-      if (activeRecognition) {
-        try {
-          activeRecognition.onend = null;
-          activeRecognition.stop();
-        } catch (e) {}
-        activeRecognition = null;
-      }
+function populateLoginUserSelect() {
+  const sel = document.getElementById('loginUserSelect');
+  sel.innerHTML = '';
+  (appState.users || []).forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.userId;
+    opt.textContent = u.name + '（' + u.role + '）';
+    sel.appendChild(opt);
+  });
+}
 
-      updateBatchUI('processing');
+async function startAutoFaceLogin() {
+  const statusEl = document.getElementById('loginScanStatus');
+  const usersWithFace = (appState.users || []).filter(u => Array.isArray(u.descriptors) && u.descriptors.length > 0);
+  if (usersWithFace.length === 0) {
+    statusEl.textContent = '尚無已註冊人臉特徵，請切換「首次人臉註冊」或使用下方 PIN 碼登入';
+    return;
+  }
+  try {
+    const landmarker = await ensureFaceLandmarker();
+    const video = document.getElementById('loginVideo');
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    appState.activeStream = stream;
+    video.srcObject = stream;
+    await video.play();
 
-      if (!captured) {
-        updateBatchUI('idle');
-        document.getElementById('batchReplyBox').textContent = '未偵測到有效語音內容，請重新點擊「開始批次錄音」。';
-        return;
-      }
-
-      document.getElementById('batchReplyBox').textContent = '⏳ 正在逐條解析您的交辦事項並同步寫入《事件簿》、《欄位主檔》與《今日待辦》...';
-
-      try {
-        const res = await callGAS('BATCH_COMMAND', { transcript: captured });
-        const reply = res.replyText || '批次指令已處理完成。';
-        document.getElementById('batchReplyBox').textContent = reply;
-        showBanner('success', `✅ 批次處理完成（共執行 ${res.actionCount || 1} 項指令）`);
-        updateBatchUI('idle');
-        speakText(reply);
-      } catch (err) {
-        document.getElementById('batchReplyBox').textContent = `⚠️ 執行失敗：${err.message}`;
-        showBanner('error', `連線異常：${err.message}`);
-        updateBatchUI('idle');
-      }
-    }
-
-    function updateBatchTimerText() {
-      const m = String(Math.floor(batchRemainingSec / 60)).padStart(2, '0');
-      const s = String(batchRemainingSec % 60).padStart(2, '0');
-      document.getElementById('timerDisplay').textContent = `${m}:${s}`;
-    }
-
-    function updateBatchUI(state) {
-      const wrapper = document.getElementById('batchMicWrapper');
-      const btn = document.getElementById('batchMicBtn');
-      const icon = document.getElementById('batchMicIcon');
-      const label = document.getElementById('batchMicLabel');
-      const pill = document.getElementById('batchStatusPill');
-
-      wrapper.className = 'mic-wrapper';
-      btn.className = 'mic-btn';
-      pill.className = 'status-pill';
-
-      if (state === 'recording') {
-        wrapper.classList.add('is-recording');
-        btn.classList.add('state-recording');
-        icon.textContent = '⏹️';
-        label.textContent = '停止並送出';
-        pill.classList.add('recording');
-        pill.textContent = '🔴 批次錄音中... 講完所有交辦事項後請按停止（上限 3 分鐘）';
-      } else if (state === 'processing') {
-        icon.textContent = '⏳';
-        label.textContent = '寫入處理中';
-        pill.classList.add('speaking');
-        pill.textContent = '⏳ 正在執行增、刪、改、查並寫入試算表...';
-      } else {
-        btn.classList.add('state-ready');
-        icon.textContent = '🎙️';
-        label.textContent = '開始批次錄音';
-        pill.textContent = '點擊下方按鈕開始批次口述（單次最長 3 分鐘）';
-        batchRemainingSec = 180;
-        updateBatchTimerText();
-      }
-    }
-
-    // =========================================================================
-    // 模式 2：免持喚醒聆聽模式（完整閉環：喚醒 -> 3秒複誦確認 -> 動態寫入追問 -> 動態道別回待命）
-    // =========================================================================
-    let isAwaitingConfirm = false;
-    let isAwaitingFollowup = false;
-    let isProcessingBackend = false;
-    let pendingConfirmTasks = [];
-    let cachedDynamicGoodbye = '';
-
-    function toggleWakeListening() {
-      if ('speechSynthesis' in window) {
-        const u = new SpeechSynthesisUtterance('');
-        window.speechSynthesis.speak(u);
-      }
-
-      if (isWakeEnabled) {
-        isWakeEnabled = false;
-        isAwaitingConfirm = false;
-        isAwaitingFollowup = false;
-        isProcessingBackend = false;
-        pendingConfirmTasks = [];
-        releaseMicrophoneHardware();
-        updateWakeUI('off');
-      } else {
-        releaseMicrophoneHardware();
-        isWakeEnabled = true;
-        isAwake = false;
-        isAwaitingConfirm = false;
-        isAwaitingFollowup = false;
-        isProcessingBackend = false;
-        pendingConfirmTasks = [];
-        wakeCommandBuffer = '';
-        wakeInterimText = '';
-        startWakeEngine();
-      }
-    }
-
-    function getWakeGreeting() {
-      const hour = new Date().getHours();
-      if (hour >= 8 && hour < 10) {
-        return '早安，今天又是新的一天，有什麼可以為你服務的嗎？';
-      }
-      const casualReplies = ['怎麼了', '我在', '我在，請說'];
-      return casualReplies[Math.floor(Math.random() * casualReplies.length)];
-    }
-
-    function getFallbackGoodbye() {
-      const goodbyes = [
-        '好，那如果有需要請再叫我。',
-        '沒問題，有需要隨時再喊我一聲！',
-        '好的，我先待命，有事隨時叫我。'
-      ];
-      return goodbyes[Math.floor(Math.random() * goodbyes.length)];
-    }
-
-    function startWakeEngine() {
-      if (!isWakeEnabled || isProcessingBackend) return;
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        alert('此瀏覽器不支援語音辨識');
-        return;
-      }
-
-      if (isAwaitingConfirm) updateWakeUI('confirming');
-      else if (isAwaitingFollowup) updateWakeUI('followup');
-      else if (isAwake) updateWakeUI('awake');
-      else updateWakeUI('standby');
-
-      const recog = new SpeechRecognition();
-      recog.lang = 'zh-TW';
-      recog.continuous = true;
-      recog.interimResults = true;
-
-      recog.onresult = (event) => {
-        if (window.speechSynthesis.speaking || isProcessingBackend) return;
-
-        let latestTranscript = '';
-        let finalChunk = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          latestTranscript += event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalChunk += event.results[i][0].transcript;
-          }
-        }
-
-        // ★ 狀態 A：待命中 -> 偵測喚醒詞「Hi，李宥緯」
-        if (!isAwake && !isAwaitingConfirm && !isAwaitingFollowup) {
-          const wakeRegex = /(?:hi|high|嗨|嘿|哈囉|你好)?[，,\s]*(?:李)?[宥又右有友佑][緯偉為衛威]/i;
-          if (wakeRegex.test(latestTranscript)) {
-            isAwake = true;
-            const trailingCmd = latestTranscript.replace(wakeRegex, '').trim();
-            wakeCommandBuffer = trailingCmd;
-            wakeInterimText = '';
-            updateWakeUI('awake');
-            resetWakeIdleTimer(20000);
-
-            if (trailingCmd.length <= 1) {
-              stopActiveRecogOnly();
-              speakText(getWakeGreeting(), () => {
-                if (isWakeEnabled && isAwake) {
-                  resetWakeIdleTimer(20000);
-                  startWakeEngine();
-                }
-              });
-            } else {
-              clearTimeout(wakeSilenceTimer);
-              wakeSilenceTimer = setTimeout(() => processWakeCommand(), 3000);
-            }
-          }
-          return;
-        }
-
-        // ★ 狀態 B：等待口頭二次確認（「這樣對嗎？」-> 聽見「對」或修正內容）
-        if (isAwaitingConfirm) {
-          resetWakeIdleTimer(20000);
-          if (finalChunk) {
-            wakeCommandBuffer += finalChunk;
-            wakeInterimText = '';
-          } else {
-            wakeInterimText = latestTranscript;
-          }
-          const replyPhrase = (wakeCommandBuffer + wakeInterimText).trim();
-          if (replyPhrase.length > 0) {
-            clearTimeout(wakeSilenceTimer);
-            wakeSilenceTimer = setTimeout(() => handleConfirmationReply(replyPhrase), 1400);
-          }
-          return;
-        }
-
-        // ★ 狀態 C：追問階段（「還有沒有其他指令？」-> 聽見「沒有」或繼續下新指令）
-        if (isAwaitingFollowup) {
-          resetWakeIdleTimer(15000);
-          if (finalChunk) {
-            wakeCommandBuffer += finalChunk;
-            wakeInterimText = '';
-          } else {
-            wakeInterimText = latestTranscript;
-          }
-          const followupPhrase = (wakeCommandBuffer + wakeInterimText).trim();
-          if (followupPhrase.length > 0) {
-            clearTimeout(wakeSilenceTimer);
-            const isShortNo = /^(沒有|沒了|沒事|好了|不用|不必|謝謝|掰掰|拜拜|先這樣)[了啊喔呀嗎。，！!？?]*$/.test(followupPhrase);
-            const waitMs = isShortNo ? 1300 : 3000;
-            wakeSilenceTimer = setTimeout(() => handleFollowupReply(followupPhrase), waitMs);
-          }
-          return;
-        }
-
-        // ★ 狀態 D：已喚醒，正在下現場指令 -> 停頓超過 3 秒（3000ms）自動送出複誦確認
-        resetWakeIdleTimer(20000);
-        if (finalChunk) {
-          wakeCommandBuffer += finalChunk;
-          wakeInterimText = '';
-        } else {
-          wakeInterimText = latestTranscript;
-        }
-
-        const currentTotal = normalizeFarmText((wakeCommandBuffer + wakeInterimText).trim());
-        if (currentTotal.length > 0) {
-          clearTimeout(wakeSilenceTimer);
-          wakeSilenceTimer = setTimeout(() => {
-            processWakeCommand(currentTotal);
-          }, 3000);
-        }
-      };
-
-      recog.onerror = (event) => {
-        if (event.error === 'not-allowed') {
-          isWakeEnabled = false;
-          updateWakeUI('off');
-          alert('麥克風權限被拒，請在 iPhone Safari 設定允許麥克風。');
-        }
-      };
-
-      recog.onend = () => {
-        if (isWakeEnabled && !window.speechSynthesis.speaking && !isProcessingBackend) {
-          setTimeout(() => {
-            if (isWakeEnabled && !window.speechSynthesis.speaking && !isProcessingBackend) {
-              try { recog.start(); } catch (e) {}
-            }
-          }, 150);
-        }
-      };
-
-      activeRecognition = recog;
-      try { recog.start(); } catch (e) {}
-    }
-
-    function stopActiveRecogOnly() {
-      if (activeRecognition) {
-        try {
-          activeRecognition.onend = null;
-          activeRecognition.stop();
-        } catch (e) {}
-        activeRecognition = null;
-      }
-    }
-
-    function resetWakeIdleTimer(timeoutMs = 20000) {
-      clearTimeout(wakeIdleTimeout);
-      wakeIdleTimeout = setTimeout(() => {
-        if (isWakeEnabled && !isProcessingBackend && (isAwake || isAwaitingConfirm || isAwaitingFollowup)) {
-          isAwake = false;
-          isAwaitingConfirm = false;
-          isAwaitingFollowup = false;
-          pendingConfirmTasks = [];
-          wakeCommandBuffer = '';
-          wakeInterimText = '';
-          updateWakeUI('standby');
-        }
-      }, timeoutMs);
-    }
-
-    // 階段 1：解析指令並複誦「喔！好的...這樣對嗎？」
-    async function processWakeCommand(spokenCmd) {
-      const cmd = normalizeFarmText((spokenCmd || (wakeCommandBuffer + wakeInterimText)).trim());
-      wakeCommandBuffer = '';
-      wakeInterimText = '';
-      clearTimeout(wakeSilenceTimer);
-      clearTimeout(wakeIdleTimeout);
-
-      if (!cmd) {
-        isAwake = false;
-        isAwaitingFollowup = false;
-        updateWakeUI('standby');
-        return;
-      }
-
-      isProcessingBackend = true;
-      stopActiveRecogOnly();
-      updateWakeUI('speaking');
-
-      try {
-        const res = await callGAS('WAKE_COMMAND', { transcript: cmd });
-        isProcessingBackend = false;
-        const reply = res.replyText || '好的，已處理完成。';
-
-        if (res.status === 'NEED_CONFIRMATION' && res.pendingTasks) {
-          isAwake = false;
-          isAwaitingFollowup = false;
-          isAwaitingConfirm = true;
-          pendingConfirmTasks = res.pendingTasks;
-          speakText(reply, () => {
-            if (isWakeEnabled && isAwaitingConfirm) {
-              resetWakeIdleTimer(20000);
-              startWakeEngine();
+    statusEl.textContent = '📷 前鏡頭掃描中，請正視鏡頭...';
+    const scanLoop = async () => {
+      if (!appState.activeStream || !document.getElementById('authModal').classList.contains('open')) return;
+      const result = landmarker.detectForVideo(video, performance.now());
+      if (result.faceLandmarks && result.faceLandmarks.length > 0) {
+        const liveVec = extractNormalizedDescriptor(result.faceLandmarks[0]);
+        let bestUser = null;
+        let bestDist = 999;
+        usersWithFace.forEach(u => {
+          u.descriptors.forEach(savedVec => {
+            const dist = computeVectorDistance(liveVec, savedVec);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestUser = u;
             }
           });
-        } else {
-          // 純查詢或閒聊：Gemini 回覆中已自然包含追問，直接進入追問收聽狀態
-          isAwake = false;
-          isAwaitingConfirm = false;
-          isAwaitingFollowup = true;
-          cachedDynamicGoodbye = '';
-          speakText(reply, () => {
-            if (isWakeEnabled && isAwaitingFollowup) {
-              resetWakeIdleTimer(15000);
-              startWakeEngine();
-            }
-          });
+        });
+        if (bestUser && bestDist < 0.085) {
+          statusEl.textContent = '✅ 辨識成功：' + bestUser.name + '，登入中...';
+          stopCameraStream();
+          await completeLoginRequest(bestUser.userId, 'face', '');
+          return;
         }
-      } catch (err) {
-        isProcessingBackend = false;
-        speakText('抱歉，剛剛網路連線異常，請再喚醒我一次。', () => {
-          isAwake = false;
-          isAwaitingConfirm = false;
-          isAwaitingFollowup = false;
-          if (isWakeEnabled) {
-            updateWakeUI('standby');
-            startWakeEngine();
-          }
-        });
       }
-    }
+      requestAnimationFrame(scanLoop);
+    };
+    requestAnimationFrame(scanLoop);
+  } catch (err) {
+    statusEl.textContent = '無法開啟前鏡頭（' + err.message + '），請使用下方 4 碼 PIN 碼登入';
+  }
+}
 
-    // 階段 2：聽見「對！」-> 寫入資料表並朗讀 Gemini 生成的動態結案＋追問語句
-    async function handleConfirmationReply(replyText) {
-      wakeCommandBuffer = '';
-      wakeInterimText = '';
-      clearTimeout(wakeSilenceTimer);
-      clearTimeout(wakeIdleTimeout);
+async function startFaceEnrollment() {
+  const name = document.getElementById('regNameInput').value.trim();
+  const pin = document.getElementById('regPinInput').value.trim();
+  if (!name) return alert('請先填寫使用者代號（姓名）');
+  if (!/^\d{4}$/.test(pin)) return alert('請設置 4 碼數字 PIN 碼');
 
-      isProcessingBackend = true;
-      stopActiveRecogOnly();
-      updateWakeUI('speaking');
+  const promptEl = document.getElementById('regFacePrompt');
+  const barEl = document.getElementById('regProgressBar');
+  const btn = document.getElementById('btnStartFaceEnroll');
+  btn.disabled = true;
 
-      const isConfirmed = /(對|好|是|沒錯|可以|確定|嗯|對啊|對的|正確)/.test(replyText) && replyText.length <= 12;
-      const isCancelled = /^(取消|不要|作廢|算了)/.test(replyText);
+  try {
+    const landmarker = await ensureFaceLandmarker();
+    const video = document.getElementById('regVideo');
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    appState.activeStream = stream;
+    video.srcObject = stream;
+    await video.play();
 
-      if (isCancelled) {
-        isProcessingBackend = false;
-        isAwaitingConfirm = false;
-        pendingConfirmTasks = [];
-        isAwaitingFollowup = true;
-        speakText('好的，已經幫你取消這筆操作，請問還有沒有其他指令？', () => {
-          if (isWakeEnabled && isAwaitingFollowup) {
-            resetWakeIdleTimer(15000);
-            startWakeEngine();
-          }
-        });
+    // 仿 iPhone Face ID 五階段角度引導
+    const steps = [
+      { label: '步驟 1/5：請正視前鏡頭保持穩定', check: (yaw, pitch) => Math.abs(yaw) < 0.12 && Math.abs(pitch) < 0.12 },
+      { label: '步驟 2/5：請將臉部緩慢「向左轉」一點', check: (yaw, pitch) => yaw < -0.10 },
+      { label: '步驟 3/5：請將臉部緩慢「向右轉」一點', check: (yaw, pitch) => yaw > 0.10 },
+      { label: '步驟 4/5：請微微「抬頭」', check: (yaw, pitch) => pitch < -0.08 },
+      { label: '步驟 5/5：請微微「低頭」完成採集', check: (yaw, pitch) => pitch > 0.08 }
+    ];
+
+    let stepIdx = 0;
+    const collected = [];
+
+    const enrollLoop = async () => {
+      if (!appState.activeStream) return;
+      if (stepIdx >= steps.length) {
+        stopCameraStream();
+        promptEl.textContent = '✅ 多角度人臉特徵採集完成！正在寫入資料庫...';
+        barEl.style.width = '100%';
+        await submitRegistration(name, pin, collected);
+        btn.disabled = false;
         return;
       }
 
-      if (isConfirmed) {
-        try {
-          const res = await callGAS('COMMIT_PENDING_TASKS', { pendingTasks: pendingConfirmTasks });
-          isProcessingBackend = false;
-          isAwaitingConfirm = false;
-          pendingConfirmTasks = [];
-          isAwaitingFollowup = true;
-          cachedDynamicGoodbye = res.goodbyeText || '';
+      promptEl.textContent = steps[stepIdx].label;
+      barEl.style.width = (stepIdx * 20) + '%';
 
-          // 朗讀 Gemini 動態生成的結案回覆（內含追問是否還有其他指令），念完立刻開啟麥克風聽下一句！
-          const dynamicMsg = res.replyText || '好的，已經幫你寫入資料表了，請問還有沒有其他指令？';
-          speakText(dynamicMsg, () => {
-            if (isWakeEnabled && isAwaitingFollowup) {
-              resetWakeIdleTimer(15000);
-              startWakeEngine();
-            }
-          });
-        } catch (err) {
-          isProcessingBackend = false;
-          speakText('寫入資料表時發生連線異常，請再確認一次。', () => {
-            if (isWakeEnabled) {
-              updateWakeUI('standby');
-              startWakeEngine();
-            }
-          });
+      const res = landmarker.detectForVideo(video, performance.now());
+      if (res.faceLandmarks && res.faceLandmarks.length > 0) {
+        const lm = res.faceLandmarks[0];
+        const nose = lm[1];
+        const midEyeX = (lm[33].x + lm[263].x) / 2;
+        const midEyeY = (lm[33].y + lm[263].y) / 2;
+        const faceW = Math.abs(lm[454].x - lm[234].x) || 0.1;
+        const yaw = (nose.x - midEyeX) / faceW;
+        const pitch = (nose.y - midEyeY) / faceW - 0.28;
+
+        if (steps[stepIdx].check(yaw, pitch)) {
+          collected.push(extractNormalizedDescriptor(lm));
+          stepIdx++;
+          await new Promise(r => setTimeout(r, 450));
         }
-        return;
       }
+      requestAnimationFrame(enrollLoop);
+    };
+    requestAnimationFrame(enrollLoop);
+  } catch (err) {
+    btn.disabled = false;
+    promptEl.textContent = '前鏡頭啟動失敗：' + err.message;
+  }
+}
 
-      // 若你說「不對，應該是要移到 Q8」，自動把這句當成新修正重新解析
-      isProcessingBackend = false;
-      isAwaitingConfirm = false;
-      pendingConfirmTasks = [];
-      isAwake = true;
-      await processWakeCommand(replyText);
+async function submitRegistration(name, pin, descriptors) {
+  const res = await fetch(GAS_WEBAPP_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'registerUser',
+      name: name,
+      pin: pin,
+      descriptors: descriptors
+    })
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    alert(data.error);
+    return;
+  }
+  appState.currentUser = data.user;
+  localStorage.setItem('dongbao_user', JSON.stringify(data.user));
+  alert(data.message);
+  closeAuthModal();
+  await refreshAllData();
+}
+
+async function submitPinLogin() {
+  const userId = document.getElementById('loginUserSelect').value;
+  const pin = document.getElementById('loginPinInput').value.trim();
+  if (!userId) return alert('請選擇使用者');
+  if (!/^\d{4}$/.test(pin)) return alert('請輸入 4 碼數字 PIN 碼');
+  await completeLoginRequest(userId, 'pin', pin);
+}
+
+async function completeLoginRequest(userId, method, pin) {
+  const res = await fetch(GAS_WEBAPP_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'loginUser',
+      userId: userId,
+      method: method,
+      pin: pin
+    })
+  });
+  const data = await res.json();
+  if (!data.ok) return alert(data.error);
+  appState.currentUser = data.user;
+  localStorage.setItem('dongbao_user', JSON.stringify(data.user));
+  closeAuthModal();
+  applyRoleUI();
+}
+
+/* ============================================================================
+ * 二、DASHBOARD 互動式平面圖渲染（支援 A5~A15 動態併欄與即時變色）
+ * ==========================================================================*/
+function renderDashboard() {
+  const db = appState.dashboard;
+  if (!db) return;
+
+  document.getElementById('kpiNormal').textContent = db.stats.normal;
+  document.getElementById('kpiEstrus').textContent = db.stats.estrus;
+  document.getElementById('kpiAbnormal').textContent = db.stats.abnormal;
+  document.getElementById('kpiDue').textContent = db.stats.due;
+  document.getElementById('kpiEmpty').textContent = db.stats.empty;
+
+  renderFloorplanSVG(db);
+
+  const env = db.latestEnv;
+  if (env) {
+    document.getElementById('envSummaryBody').innerHTML = `
+      <div>• <b>最新紀錄時間</b>：${env.date}（${env.shift || '收班'}）｜ <b>低溫控速旋鈕刻度</b>：<span style="color:#34d399;font-weight:700;">${env.knob || '未登錄'}</span></div>
+      <div>• <b>黃色（母前料）</b>：${env.yellowFeed || '-'} ｜ <b>紅色（母後料）</b>：${env.redFeed || '-'}</div>
+      <div>• <b>白色（哺乳料）</b>：${env.whiteFeed || '-'} ｜ <b>人工乳（粉）</b>：${env.milkPowder || '-'}</div>
+    `;
+  }
+}
+
+function getPenFillColor(penCode, db) {
+  const p = db.pens[penCode];
+  if (!p) return '#e2e8f0';
+  const map = {
+    normal: '#4ade80',   // 綠色
+    estrus: '#f472b6',   // 粉紅色
+    abnormal: '#fb923c', // 橘色
+    due: '#facc15',      // 黃色
+    empty: '#e2e8f0'     // 淺灰
+  };
+  return map[p.colorState] || '#e2e8f0';
+}
+
+function renderFloorplanSVG(db) {
+  const mergedSet = new Set(db.mergedAPens || ['A5']);
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 770">
+    <rect x="0" y="0" width="1400" height="770" fill="#ffffff"/>
+    <polygon points="824,20 1368,20 1368,668 36,668 36,336 262,336 262,238 440,238 440,252 824,252" fill="none" stroke="#0f172a" stroke-width="2.5"/>
+  `;
+
+  const cell = (x, y, w, h, code, label, fontSize = 11, rotate = false) => {
+    const fill = getPenFillColor(code, db);
+    const tx = x + w / 2;
+    const ty = y + h / 2 + 4;
+    const rot = rotate ? ` transform="rotate(-90 ${tx} ${y + h / 2})"` : '';
+    return `
+      <g class="pen-clickable" onclick="showPenDetail('${code}')">
+        <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="${fill}" stroke="#334155" stroke-width="1.05"/>
+        <text x="${tx.toFixed(1)}" y="${(rotate ? y + h / 2 + 3 : ty).toFixed(1)}" font-size="${fontSize}" font-weight="700" fill="#0f172a" text-anchor="middle"${rot}>${label}</text>
+      </g>
+    `;
+  };
+
+  // A1 - A4
+  ['A1', 'A2', 'A3', 'A4'].forEach((lbl, i) => {
+    svg += cell(824 + i * 48.5, 20, 48.5, 106, lbl, lbl, 12);
+  });
+
+  // 工作走廊 & X4 - X9
+  svg += `<rect x="824" y="126" width="194" height="32" fill="#f1f5f9" stroke="#64748b"/><text x="921" y="146" font-size="12" font-weight="700" fill="#334155" text-anchor="middle">工 作 走 廊</text>`;
+  ['X4', 'X5', 'X6'].forEach((lbl, i) => {
+    svg += cell(824 + i * 64.67, 158, 64.67, 89, lbl, lbl, 13);
+  });
+  ['X7', 'X8', 'X9'].forEach((lbl, i) => {
+    svg += cell(824 + i * 64.67, 247, 64.67, 89, lbl, lbl, 13);
+  });
+
+  // Y1 - Y6 & 小門
+  ['Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'].forEach((lbl, i) => {
+    svg += cell(440 + i * 57.5, 252, 57.5, 84, lbl, lbl, 13);
+  });
+  svg += `<rect x="785" y="252" width="39" height="84" fill="#f1f5f9" stroke="#64748b"/><text x="804.5" y="298" font-size="11" font-weight="700" fill="#0f172a" text-anchor="middle">小門</text>`;
+
+  // A區 (A5 - A15 支援資料驅動動態併欄！)
+  svg += `<rect x="1018" y="20" width="350" height="86" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
+    <text x="1028" y="37" font-size="12" font-weight="700" fill="#0f172a">A區（配種舍）</text>
+    <text x="1032" y="58" font-size="10" font-weight="700" fill="#334155" text-anchor="middle">後</text>
+    <text x="1032" y="80" font-size="10" font-weight="700" fill="#334155" text-anchor="middle">前</text>`;
+  const aw = 314 / 11;
+  for (let i = 0; i < 11; i++) {
+    const base = 'A' + (i + 5);
+    const x = 1044 + i * aw;
+    if (mergedSet.has(base)) {
+      const code = db.pens[base] ? base : base + '前';
+      svg += cell(x, 43, aw, 44, code, '併', 9);
+    } else {
+      svg += cell(x, 43, aw, 22, base + '後', '後', 8);
+      svg += cell(x, 65, aw, 22, base + '前', '前', 8);
     }
+    svg += `<text x="${(x + aw / 2).toFixed(1)}" y="100" font-size="9" font-weight="700" fill="#0f172a" text-anchor="middle">${base}</text>`;
+  }
 
-    // 階段 3：聽見追問後的回答（「沒有」-> 動態道別並退回待命；有新指令 -> 無縫進入下一輪）
-    async function handleFollowupReply(followupText) {
-      wakeCommandBuffer = '';
-      wakeInterimText = '';
-      clearTimeout(wakeSilenceTimer);
-      clearTimeout(wakeIdleTimeout);
+  // B1 - B25 & C1 - C25
+  svg += `<rect x="1018" y="106" width="350" height="76" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1028" y="122" font-size="12" font-weight="700" fill="#0f172a">B區（懷孕舍 B1–B25）</text>`;
+  svg += `<rect x="1018" y="182" width="350" height="76" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1028" y="198" font-size="12" font-weight="700" fill="#0f172a">C區（懷孕舍 C1–C25）</text>`;
+  const bw = 334 / 25;
+  for (let i = 0; i < 25; i++) {
+    svg += cell(1026 + i * bw, 128, bw, 48, 'B' + (i + 1), 'B' + (i + 1), 8.5, true);
+    svg += cell(1026 + i * bw, 204, bw, 48, 'C' + (i + 1), 'C' + (i + 1), 8.5, true);
+  }
 
-      stopActiveRecogOnly();
+  // D1 - D12
+  svg += `<rect x="1018" y="258" width="350" height="78" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1028" y="275" font-size="12" font-weight="700" fill="#0f172a">D區（待產／公豬舍 D1–D12）</text>`;
+  const dw = 334 / 12;
+  for (let i = 0; i < 12; i++) {
+    svg += cell(1026 + i * dw, 282, dw, 46, 'D' + (i + 1), 'D' + (i + 1), 9.2);
+  }
 
-      const isNoMore = /(沒有|沒了|沒事|好了|不用|不必|謝謝|掰掰|拜拜|先這樣)/.test(followupText) && followupText.length <= 12;
+  // 分娩舍 P1 - P30 (雙號在上、單號在下)
+  svg += `<text x="591" y="504" font-size="12" font-weight="700" fill="#334155" text-anchor="middle">分 娩 舍 中 央 走 道 （ P 1 – P 3 0 ・ 雙 號 在 上 ／ 單 號 在 下 ）</text>`;
+  ['P2', 'P4', 'P6', 'P8'].forEach((lbl, i) => svg += cell(42 + i * 62.5, 360, 62.5, 118, lbl, lbl, 11.5));
+  ['P1', 'P3', 'P5', 'P7'].forEach((lbl, i) => svg += cell(42 + i * 62.5, 522, 62.5, 118, lbl, lbl, 11.5));
+  svg += `<rect x="292" y="336" width="34" height="332" fill="#f1f5f9" stroke="#334155"/>`;
 
-      if (isNoMore) {
-        isAwake = false;
-        isAwaitingConfirm = false;
-        isAwaitingFollowup = false;
-        pendingConfirmTasks = [];
-        updateWakeUI('speaking');
+  const pTopR = ['P10', 'P12', 'P14', 'P16', 'P18', 'P20', 'P22', 'P24', 'P26', 'P28', 'P30'];
+  const pBotR = ['P9', 'P11', 'P13', 'P15', 'P17', 'P19', 'P21', 'P23', 'P25', 'P27', 'P29'];
+  const pwR = 530 / 11;
+  for (let i = 0; i < 11; i++) {
+    svg += cell(326 + i * pwR, 360, pwR, 118, pTopR[i], pTopR[i], 10.5);
+    svg += cell(326 + i * pwR, 522, pwR, 118, pBotR[i], pBotR[i], 10.5);
+  }
 
-        const goodbyeLine = cachedDynamicGoodbye || getFallbackGoodbye();
-        cachedDynamicGoodbye = '';
+  // 連接走道 & 保一舍 N區
+  svg += `<rect x="856" y="336" width="144" height="332" fill="#f1f5f9" stroke="#64748b"/><text x="928" y="504" font-size="11" font-weight="700" fill="#475569" text-anchor="middle">連接走道</text>`;
+  const nw = 368 / 7;
+  ['N2', 'N4', 'N6', 'N8', 'N10', 'N12', 'N14'].forEach((lbl, i) => svg += cell(1000 + i * nw, 336, nw, 136, lbl, lbl, 13));
+  svg += `<rect x="1000" y="472" width="368" height="56" fill="#f1f5f9" stroke="#64748b"/><text x="1184" y="505" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle">N 區（保一舍）</text>`;
+  ['N1', 'N3', 'N5', 'N7', 'N9', 'N11'].forEach((lbl, i) => svg += cell(1000 + i * nw, 528, nw, 140, lbl, lbl, 13));
+  svg += `<rect x="${(1000 + 6 * nw).toFixed(1)}" y="528" width="${nw.toFixed(1)}" height="140" fill="#1e293b"/>`;
 
-        // 念完動態道別語後，立刻回到「待命狀態」等待下次「Hi，李宥緯」
-        speakText(goodbyeLine, () => {
-          if (isWakeEnabled) {
-            updateWakeUI('standby');
-            startWakeEngine();
-          }
-        });
-        return;
-      }
+  // 肥一舍 Q區 (底部突出區)
+  svg += `<rect x="522" y="668" width="74" height="96" fill="#f1f5f9" stroke="#64748b"/><text x="559" y="720" font-size="13" font-weight="700" fill="#0f172a" text-anchor="middle">Q區肥一</text>`;
+  ['Q1', 'Q3', 'Q5', 'Q7'].forEach((lbl, i) => svg += cell(410, 668 + i * 24, 112, 24, lbl, lbl, 11));
+  const qR = ['Q2', 'Q4', 'Q6', 'Q8', 'Q10', 'Q12', 'Q14', 'Q16', 'Q18', 'Q20', 'Q22', 'Q24'];
+  qR.forEach((lbl, i) => svg += cell(596, 668 + i * 8, 124, 8, lbl, lbl, 7.5));
 
-      // 若你直接繼續講下一件事，不需重新喚醒直接進入指令解析與確認
-      isAwaitingFollowup = false;
-      isAwake = true;
-      await processWakeCommand(followupText);
-    }
+  svg += `</svg>`;
+  document.getElementById('floorplanContainer').innerHTML = svg;
+}
 
-    function updateWakeUI(state) {
-      const wrapper = document.getElementById('wakeMicWrapper');
-      const btn = document.getElementById('wakeToggleBtn');
-      const icon = document.getElementById('wakeIcon');
-      const label = document.getElementById('wakeLabel');
-      const pill = document.getElementById('wakeStatusPill');
+function showPenDetail(penCode) {
+  const db = appState.dashboard;
+  const p = db && db.pens ? db.pens[penCode] : null;
+  document.getElementById('penModalTitle').textContent = (p ? p.displayName : penCode) + '（' + penCode + '）';
+  if (!p) {
+    document.getElementById('penModalBody').innerHTML = '<div style="color:#94a3b8;">目前資料表中無此欄位在欄紀錄（空欄待用）。</div>';
+  } else {
+    document.getElementById('penModalBody').innerHTML = `
+      <div><b>舍別區域：</b>${p.zone}</div>
+      <div><b>占用狀態：</b>${p.occStatus}</div>
+      <div><b>耳號／批次：</b>${p.earTag || '待補'}</div>
+      <div><b>在欄頭數：</b>母／公 ${p.sowCount} 頭、仔／肉 ${p.pigCount} 頭（共 ${p.totalCount} 頭）</div>
+      <div><b>基準日期：</b>${p.baseDate || '無'}</div>
+      <div><b>使用飼料：</b>${p.feed || '無'}</div>
+      <div><b>健康狀態：</b><span style="color:#fbbf24;font-weight:700;">${p.health || '正常'}</span></div>
+      ${p.dueTask ? `<div style="color:#facc15;"><b>今日待辦提醒：</b>${p.dueTask}</div>` : ''}
+      <div style="margin-top:8px;padding:8px;background:#0b131e;border-radius:8px;"><b>現場備註：</b><br>${p.note || '無'}</div>
+    `;
+  }
+  document.getElementById('penDetailModal').classList.add('open');
+}
 
-      wrapper.className = 'mic-wrapper';
-      btn.className = 'mic-btn';
-      pill.className = 'status-pill';
+/* ============================================================================
+ * 三、純前端即時語音作業（免喚醒詞・自動濾除語助詞・口語結束偵測）
+ * ==========================================================================*/
+function initSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    document.getElementById('voiceStatusPill').textContent = '⚠️ 此瀏覽器不支援 Web Speech API，請使用 iPhone Safari 或 Chrome';
+    return;
+  }
+  const rec = new SpeechRecognition();
+  rec.lang = 'zh-TW';
+  rec.continuous = true;
+  rec.interimResults = true;
 
-      if (state === 'standby') {
-        wrapper.classList.add('is-standby');
-        btn.classList.add('state-standby');
-        icon.textContent = '👂';
-        label.textContent = '聆聽模式：開啟';
-        pill.classList.add('standby');
-        pill.textContent = '💤 待命中... 請說「Hi，李宥緯」喚醒（點擊可關閉）';
-      } else if (state === 'awake') {
-        wrapper.classList.add('is-awake');
-        btn.classList.add('state-awake');
-        icon.textContent = '⚡';
-        label.textContent = '已喚醒・請說';
-        pill.classList.add('awake');
-        pill.textContent = '⚡ 已喚醒！請下指令（停頓 3 秒後系統會複誦與你確認）';
-      } else if (state === 'confirming') {
-        wrapper.classList.add('is-awake');
-        btn.classList.add('state-awake');
-        icon.textContent = '❓';
-        label.textContent = '等待確認中';
-        pill.classList.add('awake');
-        pill.textContent = '❓ 請回答「對」確認寫入，或直接口頭更正內容';
-      } else if (state === 'followup') {
-        wrapper.classList.add('is-awake');
-        btn.classList.add('state-awake');
-        icon.textContent = '💬';
-        label.textContent = '還有其他指令嗎';
-        pill.classList.add('awake');
-        pill.textContent = '💬 請直接說出下一件事，或回答「沒有」結束對話';
-      } else if (state === 'speaking') {
-        btn.classList.add('state-speaking');
-        icon.textContent = '🔊';
-        label.textContent = '語音回覆中';
-        pill.classList.add('speaking');
-        pill.textContent = '🔊 現場助理處理與語音回覆中...';
+  let baseBeforeSession = '';
+  let finalTranscriptInSession = '';
+
+  rec.onstart = () => {
+    appState.isListening = true;
+    const box = document.getElementById('voiceBufferBox');
+    baseBeforeSession = box.value.trim();
+    finalTranscriptInSession = '';
+    box.disabled = true; // 規範要求：聆聽開啟語音輸入的同時，文字對話框鎖定禁止寫入
+
+    const btn = document.getElementById('btnVoiceToggle');
+    btn.classList.add('listening');
+    document.getElementById('voiceBtnIcon').textContent = '⏹️';
+    document.getElementById('voiceBtnText').textContent = '結束語音輸入';
+    const pill = document.getElementById('voiceStatusPill');
+    pill.textContent = '🔴 聆聽中...（說「結束語音」或「結束李宥緯」可自動結束）';
+    pill.classList.add('active');
+  };
+
+  rec.onresult = (event) => {
+    let interim = '';
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const piece = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        finalTranscriptInSession += piece;
       } else {
-        icon.textContent = '🔇';
-        label.textContent = '聆聽模式：關閉';
-        pill.classList.add('standby');
-        pill.textContent = '聆聽模式已關閉（麥克風已完全釋放）';
+        interim += piece;
       }
     }
+    const combinedLive = finalTranscriptInSession + interim;
 
-    // ==================== 語音合成朗讀 ====================
-    function speakText(text, onEndCallback) {
-      lastSpokenText = text;
-      if (!('speechSynthesis' in window)) {
-        if (onEndCallback) onEndCallback();
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'zh-TW';
-      utter.rate = 1.05;
-      utter.onend = () => { if (onEndCallback) onEndCallback(); };
-      utter.onerror = () => { if (onEndCallback) onEndCallback(); };
-      window.speechSynthesis.speak(utter);
+    // 偵測口語結束指令：「結束語音」或「結束李宥緯」
+    if (/結束語音|結束李宥緯/.test(combinedLive)) {
+      finalTranscriptInSession = combinedLive.replace(/結束語音|結束李宥緯/g, '');
+      stopVoiceInput();
+      return;
     }
 
-    function replayLastSpeech() {
-      if (lastSpokenText) speakText(lastSpokenText);
+    const box = document.getElementById('voiceBufferBox');
+    box.value = (baseBeforeSession ? baseBeforeSession + '\n' : '') + combinedLive;
+    box.scrollTop = box.scrollHeight;
+  };
+
+  rec.onerror = (e) => {
+    console.warn('Speech error:', e.error);
+  };
+
+  rec.onend = () => {
+    if (appState.isListening) {
+      // 若非主動停止（例如手機短暫停頓斷開），自動清理並恢復或收尾
+      finalizeVoiceSession(baseBeforeSession, finalTranscriptInSession);
     }
+  };
 
-    function showBanner(type, text) {
-      const b = document.getElementById('statusBanner');
-      b.className = `banner ${type}`;
-      b.textContent = text;
+  appState.recognition = rec;
+}
+
+function speakFeedback(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = 'zh-TW';
+  utter.rate = 1.08;
+  window.speechSynthesis.speak(utter);
+}
+
+function toggleVoiceInput() {
+  if (!appState.recognition) return alert('您的瀏覽器不支援語音辨識');
+  if (appState.isListening) {
+    stopVoiceInput();
+  } else {
+    speakFeedback('語音輸入功能開啟');
+    try {
+      appState.recognition.start();
+    } catch (e) {}
+  }
+}
+
+function stopVoiceInput() {
+  if (!appState.isListening) return;
+  appState.isListening = false;
+  try {
+    appState.recognition.stop();
+  } catch (e) {}
+  speakFeedback('結束語音輸入');
+}
+
+function finalizeVoiceSession(prevText, rawSessionText) {
+  appState.isListening = false;
+  const btn = document.getElementById('btnVoiceToggle');
+  btn.classList.remove('listening');
+  document.getElementById('voiceBtnIcon').textContent = '🎙️';
+  document.getElementById('voiceBtnText').textContent = '開啟語音輸入';
+  const pill = document.getElementById('voiceStatusPill');
+  pill.textContent = '✅ 已自動濾除贅字並整理至暫存區（可繼續開啟追加或按送出）';
+  pill.classList.remove('active');
+
+  const cleanedNew = cleanChineseVoiceFiller_(rawSessionText);
+  const box = document.getElementById('voiceBufferBox');
+  box.disabled = false; // 解除鎖定
+  if (cleanedNew) {
+    box.value = (prevText ? prevText + '\n' : '') + cleanedNew;
+  } else {
+    box.value = prevText;
+  }
+}
+
+function cleanChineseVoiceFiller_(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return '';
+  // 1. 清除口語結束詞與常見停頓語助詞（呃、那個、嗯、啊、就是說、然後呢...）
+  s = s.replace(/結束語音|結束李宥緯/g, '');
+  s = s.replace(/(?:呃+|嗯+|啊+|喔+|哦+|那個+|這個+|就是說|然後呢|怎麼說)[，,、\s]*/g, '');
+  // 2. 校正牧場常見同音誤辨
+  s = s.replace(/控訴/g, '控速');
+  s = s.replace(/O\s*T\s*C\s*E\s*毫升/gi, 'OTC 1毫升');
+  s = s.replace(/([ABCDPNXYQ])\s+(\d+)/gi, (_, p, n) => p.toUpperCase() + n);
+  // 3. 整理多餘空白與標點
+  s = s.replace(/\s{2,}/g, '。').replace(/。{2,}/g, '。').trim();
+  if (s && !/[。！!？?]$/.test(s)) s += '。';
+  return s;
+}
+
+function clearVoiceBuffer() {
+  if (appState.isListening) return alert('語音聆聽中請先結束語音');
+  document.getElementById('voiceBufferBox').value = '';
+}
+
+function promptVoiceSubmit() {
+  if (appState.isListening) return alert('請先結束語音輸入再送出');
+  const text = document.getElementById('voiceBufferBox').value.trim();
+  if (!text) return alert('暫存文字框目前沒有內容喔！');
+  document.getElementById('voiceConfirmPreview').textContent = text;
+  document.getElementById('voiceConfirmModal').classList.add('open');
+}
+
+async function executeVoiceBatchSubmit() {
+  closeModal('voiceConfirmModal');
+  const text = document.getElementById('voiceBufferBox').value.trim();
+  const resLog = document.getElementById('voiceResultLog');
+  resLog.innerHTML = '⏳ 正在批次寫入《東寶牧場｜現場管理資料庫_v2》...';
+
+  try {
+    const res = await fetch(GAS_WEBAPP_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'submitVoiceBatch',
+        userId: appState.currentUser ? appState.currentUser.userId : '',
+        userName: appState.currentUser ? appState.currentUser.name : '',
+        cleanedText: text
+      })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      resLog.innerHTML = `<span style="color:#f87171;">❌ ${data.error}</span>`;
+      return;
     }
+    document.getElementById('voiceBufferBox').value = '';
+    resLog.innerHTML = `<div style="color:#34d399;font-weight:700;margin-bottom:6px;">✅ ${data.message}</div>` +
+      (data.results || []).map(r => `<div>• [${r.evId}] <b>${r.penTarget}</b>：${r.summary}</div>`).join('');
+    await refreshAllData();
+  } catch (err) {
+    resLog.innerHTML = `<span style="color:#f87171;">❌ 寫入失敗：${err.message}</span>`;
+  }
+}
 
-    // ==================== 底部頁籤切換（切換頁籤時自動安全釋放） ====================
-    function switchTab(tab) {
-      if (tab !== 'voice') {
-        isWakeEnabled = false;
-        isAwaitingConfirm = false;
-        isAwaitingFollowup = false;
-        isProcessingBackend = false;
-        releaseMicrophoneHardware();
-        updateBatchUI('idle');
-        updateWakeUI('off');
-      }
-      document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-      document.getElementById(`view-${tab}`).classList.add('active');
-      document.getElementById(`nav-${tab}`).classList.add('active');
+/* ============================================================================
+ * 四、每日檢核表（可誤觸還原 ＋ 滑桿防誤觸二次確認送出）
+ * ==========================================================================*/
+function renderChecklist() {
+  const wrap = document.getElementById('checklistContainer');
+  const items = appState.checklist || [];
+  if (items.length === 0) {
+    wrap.innerHTML = '<div style="padding:16px;text-align:center;color:#34d399;">🎉 今日到期檢核項目已全數完成！</div>';
+    updateChecklistSubmitBtn();
+    return;
+  }
 
-      if (tab === 'checklist') loadChecklistData();
-      if (tab === 'log') loadA4LogData();
+  wrap.innerHTML = items.map(item => {
+    const isStaged = appState.stagedChecklistIds.has(item.remId);
+    return `
+      <div class="chk-item ${isStaged ? 'staged' : ''}" onclick="toggleChecklistStage('${item.remId}')">
+        <div class="chk-box-ui">✓</div>
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:700;color:#f1f5f9;">
+            ${item.penChinese || item.penCode}｜${item.task}
+          </div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px;">
+            預計處理日：${item.dueDate || '今日'} ｜ 狀態：${isStaged ? '<span style="color:#34d399;font-weight:700;">已暫存勾選（再點可還原）</span>' : '待處理'}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+  updateChecklistSubmitBtn();
+}
+
+function toggleChecklistStage(remId) {
+  if (appState.stagedChecklistIds.has(remId)) {
+    appState.stagedChecklistIds.delete(remId);
+  } else {
+    appState.stagedChecklistIds.add(remId);
+  }
+  renderChecklist();
+}
+
+function updateChecklistSubmitBtn() {
+  const count = appState.stagedChecklistIds.size;
+  document.getElementById('chkCountBadge').textContent = '已選 ' + count + ' 項';
+  const btn = document.getElementById('btnChecklistOpenConfirm');
+  btn.disabled = count === 0;
+  btn.textContent = count > 0
+    ? `🔒 確認送出（已勾選 ${count} 項，點擊進入防誤觸滑動確認）`
+    : '🔒 確認送出（請先勾選完成項目）';
+}
+
+function openChecklistConfirmModal() {
+  const selected = (appState.checklist || []).filter(i => appState.stagedChecklistIds.has(i.remId));
+  if (selected.length === 0) return;
+  document.getElementById('checklistConfirmList').innerHTML = selected
+    .map(i => `<div>• <b>${i.penChinese || i.penCode}</b>：${i.task}</div>`)
+    .join('');
+  resetSlideThumb();
+  document.getElementById('checklistConfirmModal').classList.add('open');
+}
+
+function initSlideToConfirm() {
+  const track = document.getElementById('slideTrack');
+  const thumb = document.getElementById('slideThumb');
+  let dragging = false;
+  let startX = 0;
+
+  const onStart = (clientX) => {
+    dragging = true;
+    startX = clientX - thumb.offsetLeft;
+  };
+  const onMove = (clientX) => {
+    if (!dragging) return;
+    const maxLeft = track.clientWidth - thumb.clientWidth - 6;
+    let nextLeft = Math.max(3, Math.min(maxLeft, clientX - startX));
+    thumb.style.left = nextLeft + 'px';
+    if (nextLeft >= maxLeft - 4) {
+      dragging = false;
+      executeChecklistSubmit();
     }
+  };
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    resetSlideThumb();
+  };
 
-    // ==================== 頁籤 2：每日檢核表 ====================
-    async function loadChecklistData() {
-      const container = document.getElementById('todoContainer');
-      const dueList = document.getElementById('dueAlertList');
-      container.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:20px;">正在讀取最新檢核項目...</div>';
+  thumb.addEventListener('mousedown', e => onStart(e.clientX));
+  window.addEventListener('mousemove', e => onMove(e.clientX));
+  window.addEventListener('mouseup', onEnd);
 
-      try {
-        const data = await callGAS('GET_CHECKLIST');
-        if (!data || data.status !== 'OK' || !Array.isArray(data.todos)) {
-          container.innerHTML = `<div class="banner error" style="display:flex;">⚠️ 後端未同步：${JSON.stringify(data)}</div>`;
-          return;
-        }
-        if (data.dueAlerts && data.dueAlerts.length > 0) {
-          dueList.innerHTML = data.dueAlerts.map(item =>
-            `<div>• <strong>${convertPenName(item.pen)}</strong>（配種日 ${item.breedDate}，預產日 <strong>${item.dueDate}</strong>）－ ${item.note}</div>`
-          ).join('');
-        } else {
-          dueList.innerHTML = '<div>✅ 未來三天內全場無落入預產期 ±3 天警戒之待產母豬。</div>';
-        }
-        if (data.todos.length === 0) {
-          container.innerHTML = '<div style="text-align:center;color:#6ee7b7;padding:20px;">🎉 今日所有檢核項目皆已處理完畢！</div>';
-          return;
-        }
-        container.innerHTML = data.todos.map(t => {
-          const isDone = (t.status === '已完成');
-          return `
-            <div class="todo-card ${isDone ? 'done' : ''}" id="todo-${t.id}">
-              <div>
-                <span class="todo-tag">${t.dueDate || '持續追蹤'} ｜ ${convertPenName(t.pen || '全場')}</span>
-                <div class="todo-title">${convertPenName(t.task)}</div>
-                <div class="todo-desc">${convertPenName(t.note || '')}</div>
-              </div>
-              <button class="btn-done ${isDone ? 'completed' : ''}"
-                ${isDone ? 'disabled' : `onclick="markTodoComplete('${t.id}', this)"`}>
-                ${isDone ? '✔ 已完成' : '✅ 標記完成'}
-              </button>
-            </div>
-          `;
-        }).join('');
-      } catch (err) {
-        container.innerHTML = `<div class="banner error" style="display:flex;">讀取檢核表失敗：${err.message}</div>`;
-      }
-    }
+  thumb.addEventListener('touchstart', e => onStart(e.touches[0].clientX), { passive: true });
+  window.addEventListener('touchmove', e => onMove(e.touches[0].clientX), { passive: true });
+  window.addEventListener('touchend', onEnd);
+}
 
-    async function markTodoComplete(todoId, btnEl) {
-      btnEl.disabled = true;
-      btnEl.textContent = '寫入中...';
-      try {
-        await callGAS('COMPLETE_TODO', { todoId: todoId });
-        btnEl.textContent = '✔ 已完成';
-        btnEl.classList.add('completed');
-        document.getElementById(`todo-${todoId}`).classList.add('done');
-      } catch (err) {
-        btnEl.disabled = false;
-        btnEl.textContent = '✅ 標記完成';
-        alert('更新失敗：' + err.message);
-      }
-    }
+function resetSlideThumb() {
+  const thumb = document.getElementById('slideThumb');
+  if (thumb) thumb.style.left = '3px';
+}
 
-    // ==================== 頁籤 3：A4 日誌 ====================
-    async function loadA4LogData() {
-      document.getElementById('a4DocTitle').textContent = `東寶牧場-工作日誌_${todayCompact}`;
-      document.getElementById('a4TitleCell').textContent = `東寶牧場-工作日誌_${todayCompact}`;
-      document.getElementById('a4DocSub').textContent = `紀錄日期：${todayStr} ｜ 填報人員：李宥緯（資料同步中...）`;
+async function executeChecklistSubmit() {
+  closeModal('checklistConfirmModal');
+  const ids = Array.from(appState.stagedChecklistIds);
+  if (ids.length === 0) return;
 
-      try {
-        const data = await callGAS('GET_A4_LOG');
-        document.getElementById('a4DocSub').textContent = `紀錄時間：${todayStr} ${data.recordTime || '收班'} ｜ 填報人員：李宥緯`;
-        document.getElementById('a4WeatherCell').textContent = data.env.weather || '【待現場確認】';
-        document.getElementById('a4TempCell').textContent = data.env.temp || '【待現場確認】';
-        document.getElementById('a4KnobCell').textContent = data.env.knob || '【待現場確認】';
+  try {
+    const res = await fetch(GAS_WEBAPP_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'submitChecklist',
+        userId: appState.currentUser ? appState.currentUser.userId : '',
+        userName: appState.currentUser ? appState.currentUser.name : '',
+        completedIds: ids
+      })
+    });
+    const data = await res.json();
+    if (!data.ok) return alert(data.error);
+    appState.stagedChecklistIds.clear();
+    alert('✅ ' + data.message);
+    await refreshAllData();
+  } catch (err) {
+    alert('送出失敗：' + err.message);
+  }
+}
 
-        document.getElementById('feedYellow').textContent = data.feed.yellow || '【待現場確認】';
-        document.getElementById('feedRed').textContent = data.feed.red || '【待現場確認】';
-        document.getElementById('feedWhite').textContent = data.feed.white || '【待現場確認】';
-        document.getElementById('feedMilk').textContent = data.feed.milk || '【待現場確認】';
+/* ============================================================================
+ * 五、工作日誌與老闆重點回報
+ * ==========================================================================*/
+function renderReports() {
+  if (!appState.reports) return;
+  document.getElementById('fullWorkLogBox').value = appState.reports.fullWorkLog || '';
+  document.getElementById('bossReportBox').value = appState.reports.bossReport || '';
+}
 
-        const doneBody = document.getElementById('a4DoneBody');
-        doneBody.innerHTML = (data.doneEvents && data.doneEvents.length > 0)
-          ? data.doneEvents.map(ev => `<tr><td class="a4-label">${sanitizeLogText(ev.type)}</td><td>${sanitizeLogText(ev.record)}</td></tr>`).join('')
-          : '<tr><td colspan="2">今日尚無已結案作業紀錄</td></tr>';
+function copyTextarea(elId) {
+  const el = document.getElementById(elId);
+  el.select();
+  navigator.clipboard.writeText(el.value).then(() => {
+    alert('✅ 已複製到剪貼簿，可直接貼上 LINE 傳送！');
+  });
+}
 
-        const obsBody = document.getElementById('a4ObsBody');
-        obsBody.innerHTML = (data.obsEvents && data.obsEvents.length > 0)
-          ? data.obsEvents.map(ev => `<tr><td class="a4-label">${sanitizeLogText(ev.type)}</td><td>${sanitizeLogText(ev.record)}</td></tr>`).join('')
-          : '<tr><td colspan="2">今日無新增異常或用藥觀察紀錄</td></tr>';
-
-        const futureBody = document.getElementById('a4FutureBody');
-        const dueHtml = (data.dueAlerts && data.dueAlerts.length > 0)
-          ? data.dueAlerts.map(d => `• <strong>${convertPenName(d.pen)}</strong>：配種日 ${d.breedDate}，預產日 <strong>${d.dueDate}</strong>（${sanitizeLogText(d.note)}）`).join('<br/>')
-          : '• 未來三天內全場無落入預產期 ±3 天警戒之母豬。';
-        const todoHtml = (data.openTodos && data.openTodos.length > 0)
-          ? data.openTodos.map(t => `• <strong>${convertPenName(t.pen)}</strong>：${sanitizeLogText(t.task)}`).join('<br/>')
-          : '• 無待辦追蹤事項。';
-        futureBody.innerHTML = `
-          <tr><td class="a4-label">未來三天預產期 ±3 天警戒</td><td>${dueHtml}</td></tr>
-          <tr><td class="a4-label">跨日持續追蹤與明日提醒</td><td>${todoHtml}</td></tr>
-        `;
-      } catch (err) {
-        document.getElementById('a4DocSub').textContent = `讀取失敗：${err.message}`;
-      }
-    }
-
-    // ==================== 暫時測試：一鍵清除快取與 Cookie ====================
-    async function forceClearCacheAndCookies() {
-      try {
-        isWakeEnabled = false;
-        isAwaitingConfirm = false;
-        isAwaitingFollowup = false;
-        isProcessingBackend = false;
-        releaseMicrophoneHardware();
-        document.cookie.split(";").forEach(function(c) {
-          document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
-        });
-        localStorage.clear();
-        sessionStorage.clear();
-        if ('caches' in window) {
-          const cacheNames = await caches.keys();
-          await Promise.all(cacheNames.map(name => caches.delete(name)));
-        }
-        const baseUrl = window.location.href.split('?')[0];
-        window.location.replace(`${baseUrl}?nocache=${Date.now()}`);
-      } catch (e) {
-        window.location.reload(true);
-      }
-    }
-  </script>
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+</script>
 </body>
 </html>
