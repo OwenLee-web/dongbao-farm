@@ -4,6 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>東寶牧場｜現場作業系統 v2</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0f1926" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="東寶牧場" />
+<link rel="apple-touch-icon" href="icon-192.png" />
 <!-- MediaPipe Face Landmarker (輕量化前端人臉特徵採集與比對) -->
 <script type="module">
   import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
@@ -1018,26 +1024,57 @@ async function startFaceEnrollment() {
   }
 }
 
+async function postToGas(payloadObj, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(GAS_WEBAPP_URL, {
+      method: 'POST',
+      redirect: 'follow',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payloadObj),
+      signal: controller.signal
+    });
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      throw new Error('GAS 回傳非 JSON 格式（請確認部署權限已設為「所有人 Anyone」）：' + text.slice(0, 120));
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      throw new Error('連線逾時（超過 15 秒），請確認網路狀態或 GAS 部署設定是否為「所有人 Anyone」');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function submitRegistration(name, pin, descriptors) {
-  const res = await fetch(GAS_WEBAPP_URL, {
-    method: 'POST',
-    body: JSON.stringify({
+  const promptEl = document.getElementById('regFacePrompt');
+  try {
+    const data = await postToGas({
       action: 'registerUser',
       name: name,
       pin: pin,
       descriptors: descriptors
-    })
-  });
-  const data = await res.json();
-  if (!data.ok) {
-    alert(data.error);
-    return;
+    }, 15000);
+    if (!data.ok) {
+      promptEl.textContent = '❌ ' + data.error;
+      alert(data.error);
+      return;
+    }
+    appState.currentUser = data.user;
+    localStorage.setItem('dongbao_user', JSON.stringify(data.user));
+    promptEl.textContent = '✅ 寫入完成！';
+    alert(data.message);
+    closeAuthModal();
+    await refreshAllData();
+  } catch (err) {
+    promptEl.textContent = '❌ 寫入失敗：' + err.message;
+    alert('註冊寫入失敗：' + err.message);
   }
-  appState.currentUser = data.user;
-  localStorage.setItem('dongbao_user', JSON.stringify(data.user));
-  alert(data.message);
-  closeAuthModal();
-  await refreshAllData();
 }
 
 async function submitPinLogin() {
@@ -1049,21 +1086,21 @@ async function submitPinLogin() {
 }
 
 async function completeLoginRequest(userId, method, pin) {
-  const res = await fetch(GAS_WEBAPP_URL, {
-    method: 'POST',
-    body: JSON.stringify({
+  try {
+    const data = await postToGas({
       action: 'loginUser',
       userId: userId,
       method: method,
       pin: pin
-    })
-  });
-  const data = await res.json();
-  if (!data.ok) return alert(data.error);
-  appState.currentUser = data.user;
-  localStorage.setItem('dongbao_user', JSON.stringify(data.user));
-  closeAuthModal();
-  applyRoleUI();
+    }, 12000);
+    if (!data.ok) return alert(data.error);
+    appState.currentUser = data.user;
+    localStorage.setItem('dongbao_user', JSON.stringify(data.user));
+    closeAuthModal();
+    applyRoleUI();
+  } catch (err) {
+    alert('登入連線失敗：' + err.message);
+  }
 }
 
 /* ============================================================================
