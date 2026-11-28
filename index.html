@@ -3,13 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>東寶牧場｜現場作業系統 v2</title>
-<link rel="manifest" href="manifest.json" />
+<title>一線人員全語音 AI 賦能系統｜互動架構展示版 v2</title>
 <meta name="theme-color" content="#0f1926" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="東寶牧場" />
-<link rel="apple-touch-icon" href="icon-192.png" />
+<meta name="apple-mobile-web-app-title" content="AI語音賦能系統" />
 <!-- MediaPipe Face Landmarker (輕量化前端人臉特徵採集與比對) -->
 <script type="module">
   import { FaceLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
@@ -43,6 +41,31 @@
     flex-direction: column;
   }
 
+  /* Demo Banner */
+  .demo-banner {
+    background: linear-gradient(90deg, #064e3b, #0f766e);
+    color: #ecfdf5;
+    font-size: 12px;
+    padding: 7px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    border-bottom: 1px solid rgba(52, 211, 153, 0.35);
+  }
+  .demo-banner-btn {
+    background: rgba(255,255,255,0.18);
+    color: #ffffff;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 12px;
+    padding: 3px 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .demo-banner-btn:hover { background: rgba(255,255,255,0.28); }
+
   /* Top Header */
   header {
     background: #0f1926;
@@ -55,8 +78,8 @@
     top: 0;
     z-index: 40;
   }
-  .brand-title { font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
-  .brand-sub { font-size: 12px; color: var(--accent-green); margin-top: 2px; }
+  .brand-title { font-size: 16.5px; font-weight: 700; letter-spacing: 0.5px; }
+  .brand-sub { font-size: 11.5px; color: var(--accent-green); margin-top: 2px; }
   .header-actions { display: flex; align-items: center; gap: 8px; }
   .badge-user {
     background: #1e293b;
@@ -77,13 +100,14 @@
   }
   .role-editor { background: rgba(16,185,129,0.2); color: #34d399; border: 1px solid #10b981; }
   .role-visitor { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid #f59e0b; }
-  .btn-sm-danger {
-    background: rgba(239,68,68,0.18);
-    color: #fca5a5;
-    border: 1px solid rgba(239,68,68,0.45);
+  .btn-sm-info {
+    background: rgba(20,184,166,0.18);
+    color: #5eead4;
+    border: 1px solid rgba(20,184,166,0.45);
     padding: 5px 10px;
     border-radius: 16px;
     font-size: 12px;
+    font-weight: 700;
     cursor: pointer;
   }
 
@@ -115,6 +139,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
   }
   .btn {
     border: none;
@@ -266,6 +291,27 @@
     color: #fca5a5;
     border-color: #ef4444;
   }
+  .sample-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+    justify-content: center;
+  }
+  .sample-chip {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    border-radius: 20px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .sample-chip:hover {
+    border-color: var(--accent-teal);
+    color: #5eead4;
+  }
   .buffer-textarea {
     width: 100%;
     min-height: 150px;
@@ -375,7 +421,7 @@
     font-family: inherit;
   }
 
-  /* ================= MODALS (AUTH / FACE ID / CONFIRM) ================= */
+  /* ================= MODALS ================= */
   .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -394,7 +440,7 @@
     border-radius: 16px;
     padding: 20px;
     width: 100%;
-    max-width: 430px;
+    max-width: 460px;
     max-height: 92vh;
     overflow-y: auto;
   }
@@ -445,20 +491,36 @@
     border: 1.5px solid #ef4444;
     font-weight: 800;
   }
+  .arch-tag {
+    display: inline-block;
+    background: rgba(16,185,129,0.16);
+    color: #34d399;
+    border: 1px solid rgba(16,185,129,0.4);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    margin: 2px 4px 2px 0;
+  }
 </style>
 </head>
 <body>
 
+<div class="demo-banner">
+  <span>✨ <b>公開作品集展示模式（Demo Mode）</b>：已去識別化並預載模擬現場數據，可直接體驗所有互動功能</span>
+  <button class="demo-banner-btn" onclick="openArchModal()">ℹ️ 系統架構說明</button>
+</div>
+
 <header>
   <div>
-    <div class="brand-title">東寶牧場｜現場作業系統</div>
+    <div class="brand-title">一線人員全語音 AI 賦能系統</div>
     <div class="brand-sub" id="headerDate">載入中...</div>
   </div>
   <div class="header-actions">
-    <button class="btn-sm-danger" onclick="clearLocalCache()">🧹 清快取</button>
+    <button class="btn-sm-info" onclick="resetDemoData()">🔄 重置展示</button>
     <div class="badge-user" onclick="openAuthModal()">
-      <span id="currentUserName">未登入</span>
-      <span class="role-pill role-visitor" id="currentUserRole">訪客</span>
+      <span id="currentUserName">展示操作員</span>
+      <span class="role-pill role-editor" id="currentUserRole">操作人員</span>
     </div>
   </div>
 </header>
@@ -491,8 +553,8 @@
 
     <div class="card">
       <div class="card-title">
-        <span>🗺️ 全場即時互動平面圖（點擊任一豬欄查看明細）</span>
-        <button class="btn btn-secondary" style="padding:5px 10px;font-size:12px;" onclick="refreshAllData()">🔄 同步資料</button>
+        <span>🗺️ 全場即時互動平面圖（點擊任一色塊查看欄位明細）</span>
+        <button class="btn btn-secondary" style="padding:5px 10px;font-size:12px;" onclick="openArchModal()">📐 架構亮點</button>
       </div>
       <div class="legend-bar">
         <span class="legend-dot"><i class="swatch" style="background:#22c55e"></i>正常</span>
@@ -501,13 +563,11 @@
         <span class="legend-dot"><i class="swatch" style="background:#facc15"></i>到期作業／待產</span>
         <span class="legend-dot"><i class="swatch" style="background:#e2e8f0"></i>空欄</span>
       </div>
-      <div class="map-scroll-wrap" id="floorplanContainer">
-        <!-- SVG 動態由 JS 依據 A5~A15 併欄狀態與各欄燈號即時渲染 -->
-      </div>
+      <div class="map-scroll-wrap" id="floorplanContainer"></div>
     </div>
 
     <div class="card" id="envSummaryCard">
-      <div class="card-title"><span>🌡️ 最新環境與收班飼料存量概況</span></div>
+      <div class="card-title"><span>🌡️ 最新環境與收班物資存量概況（模擬數據）</span></div>
       <div id="envSummaryBody" style="font-size:13.5px;color:#cbd5e1;line-height:1.7;">讀取中...</div>
     </div>
   </section>
@@ -516,36 +576,45 @@
   <section id="tab-voice" class="tab-panel">
     <div class="card voice-hero">
       <div style="font-size:13px;color:#94a3b8;margin-bottom:14px;">
-        免喚醒詞・純前端即時聽寫・結束自動濾除「呃、那個、嗯」等贅詞
+        免喚醒詞・前端即時聽寫・結束自動濾除「呃、那個、嗯」等贅詞
       </div>
       <button id="btnVoiceToggle" class="voice-btn-circle" onclick="toggleVoiceInput()">
         <span style="font-size:32px;" id="voiceBtnIcon">🎙️</span>
         <span id="voiceBtnText">開啟語音輸入</span>
       </button>
       <div>
-        <span id="voiceStatusPill" class="voice-status-pill">待命模式（點擊上方按鈕立即開始）</span>
+        <span id="voiceStatusPill" class="voice-status-pill">待命模式（可點擊上方麥克風，或直接點下方模擬指令體驗）</span>
       </div>
-      <div style="font-size:12px;color:#64748b;margin-top:8px;">
-        聆聽中可隨時口語說出「<b>結束</b>」「<b>結束語音</b>」「<b>結束李宥緯</b>」「<b>關掉語音輸入</b>」「<b>不錄了</b>」自動停止並整理文本
-      </div>
-    </div>
 
-    <div class="card">
-      <div class="card-title">
-        <span>📝 語音累積暫存區（整理後文本・可多次追加）</span>
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="clearVoiceBuffer()">清空暫存</button>
-      </div>
-      <textarea id="voiceBufferBox" class="buffer-textarea" placeholder="開啟語音輸入後，系統會即時將口述內容轉入此處；結束語音時自動濾除語助詞與停頓贅字。您可多次開啟語音繼續追加，確認無誤後再按下方「送出」。"></textarea>
-      <div style="display:flex;gap:10px;margin-top:12px;">
-        <button id="btnVoiceSubmit" class="btn btn-primary" style="flex:1;padding:13px;" onclick="promptVoiceSubmit()">
-          📤 批次送出寫入資料表
+      <div class="sample-chips">
+        <button class="sample-chip" onclick="injectDemoVoice('呃那個分娩舍第22欄14頭仔豬滿4日齡完成磨牙跟補鐵劑1.5毫升還有OTC1毫升結束')">
+          💬 模擬指令1：新生仔豬基礎處置
+        </button>
+        <button class="sample-chip" onclick="injectDemoVoice('嗯巡視發現A2母豬出現發情跡象列入觀察排程試情結束')">
+          💬 模擬指令2：母豬發情異常通報
+        </button>
+        <button class="sample-chip" onclick="injectDemoVoice('那個今晚氣溫回暖低溫控速旋鈕調到30黃色母前料剩45包結束')">
+          💬 模擬指令3：溫控調整與庫存盤點
         </button>
       </div>
     </div>
 
     <div class="card">
-      <div class="card-title"><span>📋 批次寫入執行結果</span></div>
-      <div id="voiceResultLog" style="font-size:13.5px;color:#94a3b8;line-height:1.6;">尚未送出批次指令。</div>
+      <div class="card-title">
+        <span>📝 語音累積暫存區（自動去贅詞後文本・可多次追加）</span>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="clearVoiceBuffer()">清空暫存</button>
+      </div>
+      <textarea id="voiceBufferBox" class="buffer-textarea" placeholder="開啟語音輸入（或點擊上方「模擬指令」按鈕）後，系統會自動濾除語助詞並將指令彙整於此；確認無誤後按下方按鈕即可體驗批次解析與平面圖即時連動！"></textarea>
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button id="btnVoiceSubmit" class="btn btn-primary" style="flex:1;padding:13px;" onclick="promptVoiceSubmit()">
+          📤 批次解析並寫入資料表（Demo 連動）
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span>📋 批次解析與資料庫連動結果</span></div>
+      <div id="voiceResultLog" style="font-size:13.5px;color:#94a3b8;line-height:1.6;">尚未送出批次指令。送出後系統會自動拆解事件並同步更新平面圖燈號與收班簡報。</div>
     </div>
   </section>
 
@@ -557,7 +626,7 @@
         <span id="chkCountBadge" style="font-size:12px;color:#fbbf24;">已選 0 項</span>
       </div>
       <div style="font-size:12.5px;color:#94a3b8;margin-bottom:12px;">
-        勾選「完成」後僅暫存標記（誤觸可再點一次還原），須點擊下方「確認送出」並完成滑動驗證才會寫入資料庫。
+        針對現場人員戴手套或手濕容易誤觸的設計：勾選後僅暫存標記，須點擊下方「確認送出」並完成滑動驗證才會寫入資料庫。
       </div>
       <div id="checklistContainer">載入檢核項目中...</div>
       <button id="btnChecklistOpenConfirm" class="btn btn-primary" style="width:100%;margin-top:8px;padding:13px;" onclick="openChecklistConfirmModal()" disabled>
@@ -570,22 +639,22 @@
   <section id="tab-worklog" class="tab-panel">
     <div class="card">
       <div class="card-title">
-        <span>📄 每日完整工作日誌（東寶牧場-工作日誌）</span>
+        <span>📄 每日完整工作日誌（結構化自動彙整）</span>
         <button class="btn btn-secondary" style="padding:5px 10px;font-size:12px;" onclick="copyTextarea('fullWorkLogBox')">📋 複製全文</button>
       </div>
       <textarea id="fullWorkLogBox" class="report-box" readonly></textarea>
     </div>
   </section>
 
-  <!-- ==================== TAB 5: 重點回報 (老闆回報) ==================== -->
+  <!-- ==================== TAB 5: 重點回報 (管理層決策簡報) ==================== -->
   <section id="tab-bossreport" class="tab-panel">
     <div class="card">
       <div class="card-title">
-        <span>📱 老闆重點回報（LINE 精簡條列版・可直接微調複製）</span>
+        <span>📱 管理層重點回報（LINE 精簡決策版・自動過濾雜訊）</span>
         <button class="btn btn-primary" style="padding:5px 12px;font-size:12px;" onclick="copyTextarea('bossReportBox')">📋 一鍵複製傳 LINE</button>
       </div>
       <div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">
-        已自動套用四大過濾原則：僅留跨階段重大異動、異常／死亡／發情／疫苗去勢、全中文舍名、零系統雜訊。
+        內建商業規則過濾器：自動排除日常例行瑣事，僅提取跨階段異動、異常死亡、發情觀察與免疫作業，並統一轉換為全中文易讀格式。
       </div>
       <textarea id="bossReportBox" class="report-box"></textarea>
     </div>
@@ -596,7 +665,7 @@
 <nav class="bottom-nav">
   <button class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard', this)">
     <span class="nav-icon">🗺️</span>
-    <span>Dashboard</span>
+    <span>現場看板</span>
   </button>
   <button class="nav-item editor-only" data-tab="voice" onclick="switchTab('voice', this)">
     <span class="nav-icon">🎙️</span>
@@ -627,14 +696,13 @@
   </div>
 </div>
 
-<!-- ==================== MODAL 2: 語音送出警告（確認在左、紅字取消在右） ==================== -->
+<!-- ==================== MODAL 2: 語音送出確認 ==================== -->
 <div id="voiceConfirmModal" class="modal-backdrop">
   <div class="modal-card">
     <h3 style="margin:0 0 8px 0;color:#fbbf24;font-size:18px;">⚠️ 別著急，請確認輸入無誤喔</h3>
-    <p style="margin:0 0 10px 0;font-size:13.5px;color:#cbd5e1;">確認後將立即把以下整理內容寫入《東寶牧場｜現場管理資料庫_v2》：</p>
+    <p style="margin:0 0 10px 0;font-size:13.5px;color:#cbd5e1;">確認後將把以下整理內容解析並寫入關聯式資料表：</p>
     <div id="voiceConfirmPreview" style="background:#0b131e;border:1px solid #334155;border-radius:8px;padding:10px;font-size:14px;max-height:180px;overflow-y:auto;white-space:pre-wrap;"></div>
     <div class="modal-btn-row">
-      <!-- 規範要求：「確認」鍵在左邊，「取消」鍵用紅字在右邊 -->
       <button class="btn btn-primary" onclick="executeVoiceBatchSubmit()">確認</button>
       <button class="btn btn-cancel-red" onclick="closeModal('voiceConfirmModal')">取消</button>
     </div>
@@ -645,7 +713,7 @@
 <div id="checklistConfirmModal" class="modal-backdrop">
   <div class="modal-card">
     <h3 style="margin:0 0 8px 0;color:#34d399;font-size:17px;">🔒 防誤觸二次確認</h3>
-    <p style="margin:0 0 8px 0;font-size:13px;color:#cbd5e1;">您即將標記以下項目為「已完成」並寫入資料庫：</p>
+    <p style="margin:0 0 8px 0;font-size:13px;color:#cbd5e1;">您即將標記以下項目為「已完成」並更新排程狀態機：</p>
     <div id="checklistConfirmList" style="background:#0b131e;border:1px solid #334155;border-radius:8px;padding:10px;font-size:13px;max-height:160px;overflow-y:auto;line-height:1.6;"></div>
     <div class="slide-track" id="slideTrack">
       <div class="slide-label" id="slideLabel">➔ 向右滑動到底確認送出</div>
@@ -660,7 +728,7 @@
   <div class="modal-card">
     <div class="card-title">
       <span>🔐 現場人員身分驗證（人臉辨識 / PIN）</span>
-      <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="closeAuthModal()">略過(訪客)</button>
+      <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="closeAuthModal()">返回展示</button>
     </div>
 
     <div style="display:flex;gap:8px;margin-bottom:12px;">
@@ -668,38 +736,37 @@
       <button id="tabAuthRegister" class="btn btn-secondary" style="flex:1;padding:8px;" onclick="switchAuthMode('register')">首次人臉註冊</button>
     </div>
 
-    <!-- 登入模式 -->
     <div id="authLoginPane">
       <div class="face-ring-wrap">
         <video id="loginVideo" autoplay playsinline muted></video>
         <div class="face-guide-overlay"></div>
       </div>
       <div id="loginScanStatus" style="text-align:center;font-size:13px;color:#34d399;margin-bottom:10px;">
-        請將臉部對準圓框，系統自動掃臉辨識中...
+        前端搭載 MediaPipe 468 點人臉特徵擷取引擎
       </div>
       <div style="border-top:1px solid #23364d;padding-top:10px;margin-top:8px;">
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">光線昏暗備援：選擇帳號並輸入 4 碼 PIN 碼登入</div>
-        <select id="loginUserSelect" class="input-field"></select>
-        <input id="loginPinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" class="input-field" placeholder="請輸入 4 碼數字 PIN 碼" />
-        <button class="btn btn-secondary" style="width:100%;" onclick="submitPinLogin()">使用 4 碼 PIN 碼登入</button>
+        <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">展示模式快速切換權限視角：</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button class="btn btn-primary" style="padding:9px;font-size:13px;" onclick="switchDemoRole('操作人員')">切換為「操作人員」</button>
+          <button class="btn btn-secondary" style="padding:9px;font-size:13px;" onclick="switchDemoRole('訪客')">切換為「訪客(唯讀)」</button>
+        </div>
       </div>
     </div>
 
-    <!-- 首次註冊模式（仿 iPhone Face ID 多角度採集） -->
     <div id="authRegisterPane" style="display:none;">
       <label style="font-size:13px;color:#cbd5e1;">1. 使用者代號（姓名）</label>
-      <input id="regNameInput" type="text" class="input-field" placeholder="例如：李宥緯" />
+      <input id="regNameInput" type="text" class="input-field" placeholder="例如：測試操作員" />
 
       <label style="font-size:13px;color:#cbd5e1;">2. 設置 4 碼數字 PIN 碼（備援用）</label>
       <input id="regPinInput" type="password" inputmode="numeric" maxlength="4" pattern="\d{4}" class="input-field" placeholder="請輸入 4 位數字" />
 
-      <label style="font-size:13px;color:#cbd5e1;">3. 前鏡頭多角度人臉特徵採集（仿 Face ID）</label>
+      <label style="font-size:13px;color:#cbd5e1;">3. 前鏡頭五角度人臉特徵採集（仿 Face ID）</label>
       <div class="face-ring-wrap">
         <video id="regVideo" autoplay playsinline muted></video>
         <div class="face-guide-overlay"></div>
       </div>
       <div id="regFacePrompt" style="text-align:center;font-size:13.5px;font-weight:700;color:#fbbf24;margin-bottom:8px;">
-        點擊下方按鈕啟動前鏡頭並依指示轉動臉部
+        點擊下方按鈕可實際測試前鏡頭五角度人臉特徵採集
       </div>
       <div style="background:#0b131e;border-radius:8px;height:8px;overflow:hidden;margin-bottom:10px;">
         <div id="regProgressBar" style="width:0%;height:100%;background:#10b981;transition:width 0.25s;"></div>
@@ -711,24 +778,105 @@
   </div>
 </div>
 
+<!-- ==================== MODAL 5: 系統架構與開發說明 ==================== -->
+<div id="archModal" class="modal-backdrop" onclick="if(event.target===this) closeModal('archModal')">
+  <div class="modal-card" style="max-width:540px;">
+    <div class="card-title">
+      <span>📐 系統架構與解決方案說明</span>
+      <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;" onclick="closeModal('archModal')">關閉</button>
+    </div>
+    <div style="font-size:13.5px;line-height:1.75;color:#e2e8f0;">
+      <p style="margin-top:0;"><b>1. 商業痛點與設計初衷</b><br>
+      傳統農牧與第一線製造現場作業人員雙手忙碌、環境潮濕，無法低頭打字填表，導致現場異常漏報、交接資訊斷層、文書整理耗時。本系統以「免動手全語音輸入 ＋ 單一事實來源（SSOT）關聯式資料庫」為核心，將口語指令直接轉化為可追蹤的排程狀態機與管理層簡報。</p>
+
+      <p><b>2. 技術棧（Tech Stack）</b><br>
+      <span class="arch-tag">HTML5 / Vanilla JS</span>
+      <span class="arch-tag">Web Speech API</span>
+      <span class="arch-tag">MediaPipe Face Landmarker</span>
+      <span class="arch-tag">SVG 動態平面圖渲染</span>
+      <span class="arch-tag">Google Apps Script REST API</span>
+      <span class="arch-tag">Relational Database Schema</span></p>
+
+      <p><b>3. 核心工程亮點</b></p>
+      <ul style="margin:4px 0 12px 18px;padding:0;color:#cbd5e1;">
+        <li><b>行動端瀏覽器語音狀態機</b>：針對 iOS Safari 設計單句無縫續接與音量頻譜回饋，支援口語關鍵詞即時中斷與贅字過濾正規化。</li>
+        <li><b>防誤觸人機介面（HMI）</b>：針對現場戴手套操作，設計「暫存勾選可還原 ＋ 滑動到底二次確認」機制，杜絕誤寫資料庫。</li>
+        <li><b>輕量化生物辨識權限控管</b>：前端透過 MediaPipe 提取五角度正規化幾何向量比對，區分「操作人員（全功能）」與「訪客（唯讀看板）」。</li>
+        <li><b>資料脫敏與安全隔離</b>：本公開展示版已抽離正式環境 API 端點與商業數據，改由內建模擬引擎驅動完整互動流程。</li>
+      </ul>
+      <div style="font-size:12px;color:#94a3b8;border-top:1px solid #23364d;padding-top:8px;">
+        系統架構設計與全端開發：李宥緯（國立中興大學資訊管理學系）
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 /**
- * 請將部署後的 Google Apps Script Web App URL 貼於下方：
+ * 【安全設定】公開作品集版本已移除正式環境後端網址，預設啟用內建 Demo 模擬引擎。
+ * 若要串接私有 Google Apps Script 後端，請於部署後填入 Web App URL 並將 DEMO_MODE 設為 false。
  */
-const GAS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycby2TBG58_fy0K2oKH4ceLeb7wmfhZ_VoBnIV4-0-imRD4majFPo_tm_NlSzVI6-UwIc/exec';
+const DEMO_MODE = true;
+const GAS_WEBAPP_URL = 'YOUR_DEPLOYED_GAS_WEBAPP_URL';
+
+function buildInitialDemoData() {
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  return {
+    users: [
+      { userId: 'U001', name: '展示操作員', role: '操作人員', descriptors: [] },
+      { userId: 'U002', name: '場區訪客', role: '訪客', descriptors: [] }
+    ],
+    dashboard: {
+      stats: { normal: 42, estrus: 3, abnormal: 3, due: 4, empty: 18 },
+      mergedAPens: ['A5', 'A6'],
+      latestEnv: {
+        date: today,
+        shift: '收班',
+        knob: '25',
+        yellowFeed: '31包又7/10車',
+        redFeed: '22包又4/10車',
+        whiteFeed: '26包又8/10車',
+        milkPowder: '9又8/10包'
+      },
+      pens: {
+        'A1': { displayName: '配種舍第1欄', zone: 'A區（配種舍）', occStatus: '在欄觀察', earTag: 'S-2024-018', sowCount: 1, pigCount: 0, totalCount: 1, baseDate: today, feed: '黃色（母前料）', health: '發情／返情觀察中', colorState: 'estrus', dueTask: '連續3天公豬試情確認配種時機', note: '巡視發現外陰紅腫與黏液，已排入每日試情追蹤。' },
+        'A2': { displayName: '配種舍第2欄', zone: 'A區（配種舍）', occStatus: '正常待配', earTag: 'S-2024-024', sowCount: 1, pigCount: 0, totalCount: 1, baseDate: '2026-11-20', feed: '黃色（母前料）', health: '正常', colorState: 'normal', dueTask: '', note: '採食正常，精神活力佳。' },
+        'A5': { displayName: '配種舍第5欄（併欄）', zone: 'A區（配種舍）', occStatus: '併欄飼養', earTag: 'S-2024-031 / 032', sowCount: 2, pigCount: 0, totalCount: 2, baseDate: '2026-11-18', feed: '黃色（母前料）', health: '正常', colorState: 'normal', dueTask: '', note: '雙欄合併空間，已配種穩定觀察。' },
+        'B19': { displayName: '懷孕舍 B19 欄', zone: 'B區（懷孕舍）', occStatus: '返情敏感期', earTag: 'S-2023-112', sowCount: 1, pigCount: 0, totalCount: 1, baseDate: '2026-11-06', feed: '黃色（母前料）', health: '發情／返情試情', colorState: 'estrus', dueTask: '配種後滿21天返情試情檢核', note: '公豬試情確認穩定度。' },
+        'C12': { displayName: '懷孕舍 C12 欄', zone: 'C區（懷孕舍）', occStatus: '發情複查', earTag: 'S-2024-009', sowCount: 1, pigCount: 0, totalCount: 1, baseDate: today, feed: '黃色（母前料）', health: '發情／返情觀察中', colorState: 'estrus', dueTask: '公豬試情確認是否複配', note: '持續觀察靜立反射。' },
+        'P8': { displayName: '分娩舍第8欄', zone: '分娩舍', occStatus: '待產警戒', earTag: 'S-2023-088', sowCount: 1, pigCount: 0, totalCount: 1, baseDate: '2026-11-30', feed: '紅色（母後料）', health: '懷孕滿114±3天預產警戒', colorState: 'due', dueTask: '每日早晚巡視乳房泌乳與築巢徵兆', note: '預計 2026-11-30 分娩，保溫燈已預熱測試完成。' },
+        'P14': { displayName: '分娩舍第14欄', zone: '分娩舍', occStatus: '待產警戒', earTag: 'S-2024-003', sowCount: 1, pigCount: 0, totalCount: 1, baseDate: '2026-11-30', feed: '紅色（母後料）', health: '懷孕滿114±3天預產警戒', colorState: 'due', dueTask: '每日早晚預產警戒巡查', note: '預計 2026-11-30 分娩。' },
+        'P17': { displayName: '分娩舍第17欄', zone: '分娩舍', occStatus: '離乳留欄換料', earTag: 'B20261101-P17', sowCount: 0, pigCount: 5, totalCount: 5, baseDate: '2026-11-21', feed: '1/2人工乳 ＋ 1/2白色哺乳料', health: '正常換料中', colorState: 'normal', dueTask: '', note: '離乳滿7天，執行14天漸進換料曲線。' },
+        'P21': { displayName: '分娩舍第21欄', zone: '分娩舍', occStatus: '輔餵觀察', earTag: 'B20261112-P21', sowCount: 1, pigCount: 10, totalCount: 11, baseDate: '2026-11-12', feed: '白色（哺乳料）＋人工乳輔餵', health: '母豬泌乳不足加強照護', colorState: 'abnormal', dueTask: '每日沖泡人工乳粉加強槽位輔餵', note: '仔豬採食人工乳狀況良好。' },
+        'P22': { displayName: '分娩舍第22欄', zone: '分娩舍', occStatus: '新生照護', earTag: 'B20261124-P22', sowCount: 1, pigCount: 14, totalCount: 15, baseDate: '2026-11-24', feed: '白色（哺乳料）', health: '留意1頭弱仔吸吮活力', colorState: 'abnormal', dueTask: '滿4日齡磨牙、補鐵劑1.5cc與OTC 1cc', note: '保溫區溫度維持28°C，持續觀察弱仔。' },
+        'P24': { displayName: '分娩舍第24欄', zone: '分娩舍', occStatus: '哺乳中', earTag: 'B20261121-P24', sowCount: 1, pigCount: 13, totalCount: 14, baseDate: '2026-11-21', feed: '白色（哺乳料）', health: '今日到期疫苗施打', colorState: 'due', dueTask: '滿7日齡第一次常規疫苗 SEP 2cc', note: '全窩活力正常。' },
+        'P25': { displayName: '分娩舍第25欄', zone: '分娩舍', occStatus: '哺乳中', earTag: 'B20261110-P25', sowCount: 1, pigCount: 13, totalCount: 14, baseDate: '2026-11-10', feed: '白色（哺乳料）', health: '正常', colorState: 'normal', dueTask: '', note: '已完成去勢與常規疫苗免疫，恢復良好。' },
+        'N2': { displayName: '保一舍第2欄', zone: 'N區（保一舍）', occStatus: '重點觀察', earTag: 'N-202610-02', sowCount: 0, pigCount: 3, totalCount: 3, baseDate: '2026-11-15', feed: '保育前期料', health: '獨立隔離觀察', colorState: 'abnormal', dueTask: '每日觀察採食與精神狀態', note: '個體較小移入獨立欄照護。' },
+        'Q1': { displayName: '肥一舍第1欄', zone: 'Q區（肥一舍）', occStatus: '正常育肥', earTag: 'Q-202609-01', sowCount: 0, pigCount: 18, totalCount: 18, baseDate: '2026-10-05', feed: '育肥後期料', health: '正常', colorState: 'normal', dueTask: '', note: '生長均勻度佳。' }
+      }
+    },
+    checklist: [
+      { remId: 'REM-DEMO-01', penCode: 'P22', penChinese: '分娩舍第22欄', task: '【滿4日齡處置】14頭仔豬磨牙、補鐵劑 1.5cc、OTC 1cc', dueDate: today },
+      { remId: 'REM-DEMO-02', penCode: 'P24', penChinese: '分娩舍第24欄', task: '【滿7日齡免疫】13頭仔豬施打第一次常規疫苗 SEP 2cc', dueDate: today },
+      { remId: 'REM-DEMO-03', penCode: 'A1', penChinese: '配種舍 A1 欄', task: '【發情試情追蹤】進行公豬試情與靜立反射確認', dueDate: today },
+      { remId: 'REM-DEMO-04', penCode: 'P8', penChinese: '分娩舍第8欄', task: '【預產警戒巡查】觀察待產母豬乳房泌乳與分娩徵兆', dueDate: today }
+    ],
+    voiceEvents: []
+  };
+}
 
 let appState = {
-  currentUser: JSON.parse(localStorage.getItem('dongbao_user') || 'null'),
+  currentUser: { userId: 'U001', name: '展示操作員', role: '操作人員' },
   users: [],
   dashboard: null,
   checklist: [],
   stagedChecklistIds: new Set(),
+  voiceEvents: [],
   reports: null,
   isListening: false,
   recognition: null,
   faceLandmarker: null,
-  activeStream: null,
-  enrolledDescriptors: []
+  activeStream: null
 };
 
 /* ============================================================================
@@ -736,24 +884,31 @@ let appState = {
  * ==========================================================================*/
 window.addEventListener('DOMContentLoaded', async () => {
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
-  document.getElementById('headerDate').textContent = '今日日期：' + today;
+  document.getElementById('headerDate').textContent = '展示日期：' + today + '（屏東內埔即時氣象連動）';
 
   applyRoleUI();
   initSpeechRecognition();
   initSlideToConfirm();
   await refreshAllData();
-
-  if (!appState.currentUser) {
-    openAuthModal();
-  }
 });
 
 async function refreshAllData() {
-  if (!GAS_WEBAPP_URL || GAS_WEBAPP_URL.includes('YOUR_DEPLOYED')) {
-    renderFloorplanSVG({ pens: {}, mergedAPens: ['A5'], stats: { normal:0, estrus:0, abnormal:0, due:0, empty:0 } });
-    document.getElementById('envSummaryBody').innerHTML = '⚠️ 尚未設定 <code>GAS_WEBAPP_URL</code>，目前顯示平面圖預覽模式。請部署 <code>Code.gs</code> 後填入網址。';
+  if (DEMO_MODE || !GAS_WEBAPP_URL || GAS_WEBAPP_URL.includes('YOUR_DEPLOYED')) {
+    if (!appState.dashboard) {
+      const demo = buildInitialDemoData();
+      appState.users = demo.users;
+      appState.dashboard = demo.dashboard;
+      appState.checklist = demo.checklist;
+      appState.voiceEvents = demo.voiceEvents;
+    }
+    rebuildDemoReports();
+    applyRoleUI();
+    renderDashboard();
+    renderChecklist();
+    renderReports();
     return;
   }
+
   try {
     const res = await fetch(GAS_WEBAPP_URL + '?action=init');
     const data = await res.json();
@@ -764,24 +919,39 @@ async function refreshAllData() {
     appState.checklist = (data.checklist && data.checklist.items) ? data.checklist.items : [];
     appState.reports = data.reports;
 
-    // 同步更新目前登入者最新後台權限角色
-    if (appState.currentUser) {
-      const freshUser = appState.users.find(u => u.userId === appState.currentUser.userId);
-      if (freshUser) {
-        appState.currentUser.role = freshUser.role;
-        localStorage.setItem('dongbao_user', JSON.stringify(appState.currentUser));
-      }
-    }
-
     applyRoleUI();
     renderDashboard();
     renderChecklist();
     renderReports();
-    populateLoginUserSelect();
   } catch (err) {
     console.error(err);
     alert('資料同步發生錯誤：' + err.message);
   }
+}
+
+function resetDemoData() {
+  const demo = buildInitialDemoData();
+  appState.users = demo.users;
+  appState.dashboard = demo.dashboard;
+  appState.checklist = demo.checklist;
+  appState.voiceEvents = [];
+  appState.stagedChecklistIds.clear();
+  document.getElementById('voiceBufferBox').value = '';
+  document.getElementById('voiceResultLog').textContent = '展示資料已重置為初始狀態。';
+  rebuildDemoReports();
+  renderDashboard();
+  renderChecklist();
+  renderReports();
+}
+
+function switchDemoRole(role) {
+  appState.currentUser = {
+    userId: role === '操作人員' ? 'U001' : 'U002',
+    name: role === '操作人員' ? '展示操作員' : '場區訪客',
+    role: role
+  };
+  closeAuthModal();
+  applyRoleUI();
 }
 
 function applyRoleUI() {
@@ -812,13 +982,6 @@ function switchTab(tabName, btnEl) {
   if (btnEl) btnEl.classList.add('active');
 }
 
-function clearLocalCache() {
-  if (confirm('確定要清除本機快取並重新同步最新資料嗎？')) {
-    localStorage.removeItem('dongbao_user');
-    location.reload();
-  }
-}
-
 /* ============================================================================
  * 一、前鏡頭人臉辨識註冊（仿 iPhone Face ID）與登入
  * ==========================================================================*/
@@ -842,7 +1005,6 @@ async function ensureFaceLandmarker() {
 }
 
 function extractNormalizedDescriptor(landmarks) {
-  // 選取 32 個關鍵幾何特徵點（眼角、鼻尖、鼻翼、嘴角、下巴、眉弓、臉頰輪廓）正規化為比例向量
   const keyIdx = [1, 4, 5, 6, 10, 33, 61, 70, 105, 107, 133, 152, 159, 145, 234, 263, 291, 300, 334, 336, 362, 386, 374, 454, 168, 197, 2, 98, 327, 17, 0, 13];
   const nose = landmarks[1];
   const leftCheek = landmarks[234];
@@ -858,16 +1020,6 @@ function extractNormalizedDescriptor(landmarks) {
   return vec;
 }
 
-function computeVectorDistance(v1, v2) {
-  if (!v1 || !v2 || v1.length !== v2.length) return 999;
-  let sum = 0;
-  for (let i = 0; i < v1.length; i++) {
-    const d = v1[i] - v2[i];
-    sum += d * d;
-  }
-  return Math.sqrt(sum / v1.length);
-}
-
 function stopCameraStream() {
   if (appState.activeStream) {
     appState.activeStream.getTracks().forEach(t => t.stop());
@@ -877,13 +1029,16 @@ function stopCameraStream() {
 
 function openAuthModal() {
   document.getElementById('authModal').classList.add('open');
-  populateLoginUserSelect();
   switchAuthMode('login');
 }
 
 function closeAuthModal() {
   stopCameraStream();
   document.getElementById('authModal').classList.remove('open');
+}
+
+function openArchModal() {
+  document.getElementById('archModal').classList.add('open');
 }
 
 function switchAuthMode(mode) {
@@ -893,71 +1048,11 @@ function switchAuthMode(mode) {
   document.getElementById('authRegisterPane').style.display = isLogin ? 'none' : 'block';
   document.getElementById('tabAuthLogin').className = 'btn ' + (isLogin ? 'btn-primary' : 'btn-secondary');
   document.getElementById('tabAuthRegister').className = 'btn ' + (!isLogin ? 'btn-primary' : 'btn-secondary');
-  if (isLogin) startAutoFaceLogin();
-}
-
-function populateLoginUserSelect() {
-  const sel = document.getElementById('loginUserSelect');
-  sel.innerHTML = '';
-  (appState.users || []).forEach(u => {
-    const opt = document.createElement('option');
-    opt.value = u.userId;
-    opt.textContent = u.name + '（' + u.role + '）';
-    sel.appendChild(opt);
-  });
-}
-
-async function startAutoFaceLogin() {
-  const statusEl = document.getElementById('loginScanStatus');
-  const usersWithFace = (appState.users || []).filter(u => Array.isArray(u.descriptors) && u.descriptors.length > 0);
-  if (usersWithFace.length === 0) {
-    statusEl.textContent = '尚無已註冊人臉特徵，請切換「首次人臉註冊」或使用下方 PIN 碼登入';
-    return;
-  }
-  try {
-    const landmarker = await ensureFaceLandmarker();
-    const video = document.getElementById('loginVideo');
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
-    appState.activeStream = stream;
-    video.srcObject = stream;
-    await video.play();
-
-    statusEl.textContent = '📷 前鏡頭掃描中，請正視鏡頭...';
-    const scanLoop = async () => {
-      if (!appState.activeStream || !document.getElementById('authModal').classList.contains('open')) return;
-      const result = landmarker.detectForVideo(video, performance.now());
-      if (result.faceLandmarks && result.faceLandmarks.length > 0) {
-        const liveVec = extractNormalizedDescriptor(result.faceLandmarks[0]);
-        let bestUser = null;
-        let bestDist = 999;
-        usersWithFace.forEach(u => {
-          u.descriptors.forEach(savedVec => {
-            const dist = computeVectorDistance(liveVec, savedVec);
-            if (dist < bestDist) {
-              bestDist = dist;
-              bestUser = u;
-            }
-          });
-        });
-        if (bestUser && bestDist < 0.085) {
-          statusEl.textContent = '✅ 辨識成功：' + bestUser.name + '，登入中...';
-          stopCameraStream();
-          await completeLoginRequest(bestUser.userId, 'face', '');
-          return;
-        }
-      }
-      requestAnimationFrame(scanLoop);
-    };
-    requestAnimationFrame(scanLoop);
-  } catch (err) {
-    statusEl.textContent = '無法開啟前鏡頭（' + err.message + '），請使用下方 4 碼 PIN 碼登入';
-  }
 }
 
 async function startFaceEnrollment() {
-  const name = document.getElementById('regNameInput').value.trim();
-  const pin = document.getElementById('regPinInput').value.trim();
-  if (!name) return alert('請先填寫使用者代號（姓名）');
+  const name = document.getElementById('regNameInput').value.trim() || '展示測試人員';
+  const pin = document.getElementById('regPinInput').value.trim() || '1234';
   if (!/^\d{4}$/.test(pin)) return alert('請設置 4 碼數字 PIN 碼');
 
   const promptEl = document.getElementById('regFacePrompt');
@@ -973,7 +1068,6 @@ async function startFaceEnrollment() {
     video.srcObject = stream;
     await video.play();
 
-    // 仿 iPhone Face ID 五階段角度引導
     const steps = [
       { label: '步驟 1/5：請正視前鏡頭保持穩定', check: (yaw, pitch) => Math.abs(yaw) < 0.12 && Math.abs(pitch) < 0.12 },
       { label: '步驟 2/5：請將臉部緩慢「向左轉」一點', check: (yaw, pitch) => yaw < -0.10 },
@@ -989,10 +1083,11 @@ async function startFaceEnrollment() {
       if (!appState.activeStream) return;
       if (stepIdx >= steps.length) {
         stopCameraStream();
-        promptEl.textContent = '✅ 多角度人臉特徵採集完成！正在寫入資料庫...';
+        promptEl.textContent = '✅ 五角度 96 維正規化人臉特徵採集完成！（Demo 模式不寫入外部伺服器）';
         barEl.style.width = '100%';
-        await submitRegistration(name, pin, collected);
         btn.disabled = false;
+        appState.currentUser = { userId: 'U-DEMO', name: name, role: '操作人員' };
+        applyRoleUI();
         return;
       }
 
@@ -1020,108 +1115,40 @@ async function startFaceEnrollment() {
     requestAnimationFrame(enrollLoop);
   } catch (err) {
     btn.disabled = false;
-    promptEl.textContent = '前鏡頭啟動失敗：' + err.message;
-  }
-}
-
-async function postToGas(payloadObj, timeoutMs = 15000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(GAS_WEBAPP_URL, {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payloadObj),
-      signal: controller.signal
-    });
-    const text = await res.text();
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      throw new Error('GAS 回傳非 JSON 格式（請確認部署權限已設為「所有人 Anyone」）：' + text.slice(0, 120));
-    }
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      throw new Error('連線逾時（超過 15 秒），請確認網路狀態或 GAS 部署設定是否為「所有人 Anyone」');
-    }
-    throw err;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function submitRegistration(name, pin, descriptors) {
-  const promptEl = document.getElementById('regFacePrompt');
-  try {
-    const data = await postToGas({
-      action: 'registerUser',
-      name: name,
-      pin: pin,
-      descriptors: descriptors
-    }, 15000);
-    if (!data.ok) {
-      promptEl.textContent = '❌ ' + data.error;
-      alert(data.error);
-      return;
-    }
-    appState.currentUser = data.user;
-    localStorage.setItem('dongbao_user', JSON.stringify(data.user));
-    promptEl.textContent = '✅ 寫入完成！';
-    alert(data.message);
-    closeAuthModal();
-    await refreshAllData();
-  } catch (err) {
-    promptEl.textContent = '❌ 寫入失敗：' + err.message;
-    alert('註冊寫入失敗：' + err.message);
-  }
-}
-
-async function submitPinLogin() {
-  const userId = document.getElementById('loginUserSelect').value;
-  const pin = document.getElementById('loginPinInput').value.trim();
-  if (!userId) return alert('請選擇使用者');
-  if (!/^\d{4}$/.test(pin)) return alert('請輸入 4 碼數字 PIN 碼');
-  await completeLoginRequest(userId, 'pin', pin);
-}
-
-async function completeLoginRequest(userId, method, pin) {
-  try {
-    const data = await postToGas({
-      action: 'loginUser',
-      userId: userId,
-      method: method,
-      pin: pin
-    }, 12000);
-    if (!data.ok) return alert(data.error);
-    appState.currentUser = data.user;
-    localStorage.setItem('dongbao_user', JSON.stringify(data.user));
-    closeAuthModal();
-    applyRoleUI();
-  } catch (err) {
-    alert('登入連線失敗：' + err.message);
+    promptEl.textContent = '前鏡頭啟動失敗（可能未授權相機）：' + err.message;
   }
 }
 
 /* ============================================================================
- * 二、DASHBOARD 互動式平面圖渲染（支援 A5~A15 動態併欄與即時變色）
+ * 二、DASHBOARD 互動式平面圖渲染
  * ==========================================================================*/
 function renderDashboard() {
   const db = appState.dashboard;
   if (!db) return;
 
-  document.getElementById('kpiNormal').textContent = db.stats.normal;
-  document.getElementById('kpiEstrus').textContent = db.stats.estrus;
-  document.getElementById('kpiAbnormal').textContent = db.stats.abnormal;
-  document.getElementById('kpiDue').textContent = db.stats.due;
-  document.getElementById('kpiEmpty').textContent = db.stats.empty;
+  // 動態重算統計數字
+  let normal = 0, estrus = 0, abnormal = 0, due = 0;
+  Object.values(db.pens).forEach(p => {
+    if (p.colorState === 'normal') normal++;
+    else if (p.colorState === 'estrus') estrus++;
+    else if (p.colorState === 'abnormal') abnormal++;
+    else if (p.colorState === 'due') due++;
+  });
+  const totalOccupied = normal + estrus + abnormal + due;
+  const empty = Math.max(0, 128 - totalOccupied);
+
+  document.getElementById('kpiNormal').textContent = normal;
+  document.getElementById('kpiEstrus').textContent = estrus;
+  document.getElementById('kpiAbnormal').textContent = abnormal;
+  document.getElementById('kpiDue').textContent = due;
+  document.getElementById('kpiEmpty').textContent = empty;
 
   renderFloorplanSVG(db);
 
   const env = db.latestEnv;
   if (env) {
     document.getElementById('envSummaryBody').innerHTML = `
-      <div>• <b>最新紀錄時間</b>：${env.date}（${env.shift || '收班'}）｜ <b>低溫控速旋鈕刻度</b>：<span style="color:#34d399;font-weight:700;">${env.knob || '未登錄'}</span></div>
+      <div>• <b>最新紀錄日期</b>：${env.date}（${env.shift || '收班'}）｜ <b>低溫控速旋鈕刻度</b>：<span style="color:#34d399;font-weight:700;">${env.knob || '未登錄'}</span></div>
       <div>• <b>黃色（母前料）</b>：${env.yellowFeed || '-'} ｜ <b>紅色（母後料）</b>：${env.redFeed || '-'}</div>
       <div>• <b>白色（哺乳料）</b>：${env.whiteFeed || '-'} ｜ <b>人工乳（粉）</b>：${env.milkPowder || '-'}</div>
     `;
@@ -1132,11 +1159,11 @@ function getPenFillColor(penCode, db) {
   const p = db.pens[penCode];
   if (!p) return '#e2e8f0';
   const map = {
-    normal: '#4ade80',   // 綠色
-    estrus: '#f472b6',   // 粉紅色
-    abnormal: '#fb923c', // 橘色
-    due: '#facc15',      // 黃色
-    empty: '#e2e8f0'     // 淺灰
+    normal: '#4ade80',
+    estrus: '#f472b6',
+    abnormal: '#fb923c',
+    due: '#facc15',
+    empty: '#e2e8f0'
   };
   return map[p.colorState] || '#e2e8f0';
 }
@@ -1161,12 +1188,10 @@ function renderFloorplanSVG(db) {
     `;
   };
 
-  // A1 - A4
   ['A1', 'A2', 'A3', 'A4'].forEach((lbl, i) => {
     svg += cell(824 + i * 48.5, 20, 48.5, 106, lbl, lbl, 12);
   });
 
-  // 工作走廊 & X4 - X9
   svg += `<rect x="824" y="126" width="194" height="32" fill="#f1f5f9" stroke="#64748b"/><text x="921" y="146" font-size="12" font-weight="700" fill="#334155" text-anchor="middle">工 作 走 廊</text>`;
   ['X4', 'X5', 'X6'].forEach((lbl, i) => {
     svg += cell(824 + i * 64.67, 158, 64.67, 89, lbl, lbl, 13);
@@ -1175,13 +1200,11 @@ function renderFloorplanSVG(db) {
     svg += cell(824 + i * 64.67, 247, 64.67, 89, lbl, lbl, 13);
   });
 
-  // Y1 - Y6 & 小門
   ['Y1', 'Y2', 'Y3', 'Y4', 'Y5', 'Y6'].forEach((lbl, i) => {
     svg += cell(440 + i * 57.5, 252, 57.5, 84, lbl, lbl, 13);
   });
   svg += `<rect x="785" y="252" width="39" height="84" fill="#f1f5f9" stroke="#64748b"/><text x="804.5" y="298" font-size="11" font-weight="700" fill="#0f172a" text-anchor="middle">小門</text>`;
 
-  // A區 (A5 - A15 支援資料驅動動態併欄！)
   svg += `<rect x="1018" y="20" width="350" height="86" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/>
     <text x="1028" y="37" font-size="12" font-weight="700" fill="#0f172a">A區（配種舍）</text>
     <text x="1032" y="58" font-size="10" font-weight="700" fill="#334155" text-anchor="middle">後</text>
@@ -1200,7 +1223,6 @@ function renderFloorplanSVG(db) {
     svg += `<text x="${(x + aw / 2).toFixed(1)}" y="100" font-size="9" font-weight="700" fill="#0f172a" text-anchor="middle">${base}</text>`;
   }
 
-  // B1 - B25 & C1 - C25
   svg += `<rect x="1018" y="106" width="350" height="76" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1028" y="122" font-size="12" font-weight="700" fill="#0f172a">B區（懷孕舍 B1–B25）</text>`;
   svg += `<rect x="1018" y="182" width="350" height="76" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1028" y="198" font-size="12" font-weight="700" fill="#0f172a">C區（懷孕舍 C1–C25）</text>`;
   const bw = 334 / 25;
@@ -1209,14 +1231,12 @@ function renderFloorplanSVG(db) {
     svg += cell(1026 + i * bw, 204, bw, 48, 'C' + (i + 1), 'C' + (i + 1), 8.5, true);
   }
 
-  // D1 - D12
   svg += `<rect x="1018" y="258" width="350" height="78" fill="#ffffff" stroke="#1e293b" stroke-width="1.3"/><text x="1028" y="275" font-size="12" font-weight="700" fill="#0f172a">D區（待產／公豬舍 D1–D12）</text>`;
   const dw = 334 / 12;
   for (let i = 0; i < 12; i++) {
     svg += cell(1026 + i * dw, 282, dw, 46, 'D' + (i + 1), 'D' + (i + 1), 9.2);
   }
 
-  // 分娩舍 P1 - P30 (雙號在上、單號在下)
   svg += `<text x="591" y="504" font-size="12" font-weight="700" fill="#334155" text-anchor="middle">分 娩 舍 中 央 走 道 （ P 1 – P 3 0 ・ 雙 號 在 上 ／ 單 號 在 下 ）</text>`;
   ['P2', 'P4', 'P6', 'P8'].forEach((lbl, i) => svg += cell(42 + i * 62.5, 360, 62.5, 118, lbl, lbl, 11.5));
   ['P1', 'P3', 'P5', 'P7'].forEach((lbl, i) => svg += cell(42 + i * 62.5, 522, 62.5, 118, lbl, lbl, 11.5));
@@ -1230,7 +1250,6 @@ function renderFloorplanSVG(db) {
     svg += cell(326 + i * pwR, 522, pwR, 118, pBotR[i], pBotR[i], 10.5);
   }
 
-  // 連接走道 & 保一舍 N區
   svg += `<rect x="856" y="336" width="144" height="332" fill="#f1f5f9" stroke="#64748b"/><text x="928" y="504" font-size="11" font-weight="700" fill="#475569" text-anchor="middle">連接走道</text>`;
   const nw = 368 / 7;
   ['N2', 'N4', 'N6', 'N8', 'N10', 'N12', 'N14'].forEach((lbl, i) => svg += cell(1000 + i * nw, 336, nw, 136, lbl, lbl, 13));
@@ -1238,7 +1257,6 @@ function renderFloorplanSVG(db) {
   ['N1', 'N3', 'N5', 'N7', 'N9', 'N11'].forEach((lbl, i) => svg += cell(1000 + i * nw, 528, nw, 140, lbl, lbl, 13));
   svg += `<rect x="${(1000 + 6 * nw).toFixed(1)}" y="528" width="${nw.toFixed(1)}" height="140" fill="#1e293b"/>`;
 
-  // 肥一舍 Q區 (底部突出區)
   svg += `<rect x="522" y="668" width="74" height="96" fill="#f1f5f9" stroke="#64748b"/><text x="559" y="720" font-size="13" font-weight="700" fill="#0f172a" text-anchor="middle">Q區肥一</text>`;
   ['Q1', 'Q3', 'Q5', 'Q7'].forEach((lbl, i) => svg += cell(410, 668 + i * 24, 112, 24, lbl, lbl, 11));
   const qR = ['Q2', 'Q4', 'Q6', 'Q8', 'Q10', 'Q12', 'Q14', 'Q16', 'Q18', 'Q20', 'Q22', 'Q24'];
@@ -1271,12 +1289,7 @@ function showPenDetail(penCode) {
 }
 
 /* ============================================================================
- * 三、純前端即時語音作業（iOS Safari 語音引擎狀態機修正版）
- * 修正重點：
- * 1. 廢除 continuous=true（iOS Safari 在 continuous=true 下經常靜默無任何 onresult 事件），改用單句循環 + 立即無縫重啟
- * 2. 麥克風啟動 (rec.start) 必須在按鈕點擊的同步呼叫堆疊內執行，否則 iOS Safari 會拒絕授權音訊輸入
- * 3. 即時顯示麥克風音量條 (AudioContext) 與辨識狀態診斷燈，一眼確認是否有收到聲音
- * 4. 同時監聽 interimResults 與 finalResults，只要出現「結束」「結束了」「結束語音」「結束李宥緯」「關掉語音輸入」「不錄了」立即觸發停止
+ * 三、純前端即時語音作業（支援真實麥克風 + 一鍵 Demo 模擬語音）
  * ==========================================================================*/
 const STOP_VOICE_REGEX = /(?:結束李宥緯|關掉語音輸入|關閉語音輸入|結束語音輸入|結束語音|停止語音|停止聆聽|不錄了|結束了|結束)/;
 
@@ -1291,17 +1304,29 @@ let voiceSessionState = {
   meterRaf: null
 };
 
+function injectDemoVoice(rawTranscript) {
+  if (voiceSessionState.manualListening || appState.isListening) {
+    stopVoiceInput();
+  }
+  const box = document.getElementById('voiceBufferBox');
+  const prev = box.value.trim();
+  const cleaned = cleanChineseVoiceFiller_(rawTranscript);
+  box.value = (prev ? prev + '\n' : '') + cleaned;
+  const pill = document.getElementById('voiceStatusPill');
+  pill.textContent = '✅ 已模擬語音聽寫並自動濾除「呃、那個、嗯」等贅詞';
+  pill.classList.remove('active');
+}
+
 function initSpeechRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
-    document.getElementById('voiceStatusPill').textContent = '⚠️ 此瀏覽器不支援 Web Speech API，請使用 iPhone Safari 或 Chrome';
+    document.getElementById('voiceStatusPill').textContent = 'ℹ️ 此瀏覽器不支援即時麥克風 API，請點擊下方「模擬指令」按鈕體驗';
     return;
   }
 
   function createRecognizer() {
     const rec = new SpeechRecognition();
     rec.lang = 'zh-TW';
-    // iOS Safari 關鍵修正：設為 false 搭配 onend 自動無縫續接，避免 iOS WebKit continuous=true 靜默卡死
     rec.continuous = false;
     rec.interimResults = true;
     rec.maxAlternatives = 1;
@@ -1309,34 +1334,27 @@ function initSpeechRecognition() {
     rec.onstart = () => {
       appState.isListening = true;
       const pill = document.getElementById('voiceStatusPill');
-      pill.textContent = '🔴 麥克風收音中...（講完一句停頓約0.5秒會自動上字；喊「結束」即可停止）';
+      pill.textContent = '🔴 麥克風收音中...（講完一句停頓約0.5秒自動上字；喊「結束」即可停止）';
       pill.classList.add('active');
     };
 
     rec.onresult = (event) => {
       if (!voiceSessionState.manualListening) return;
-
       let segmentFinal = '';
       let segmentInterim = '';
       for (let i = 0; i < event.results.length; i++) {
         const piece = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          segmentFinal += piece;
-        } else {
-          segmentInterim += piece;
-        }
+        if (event.results[i].isFinal) segmentFinal += piece;
+        else segmentInterim += piece;
       }
 
       voiceSessionState.currentSegmentInterim = segmentInterim;
       const liveSegment = segmentFinal || segmentInterim;
       const fullLiveCheck = voiceSessionState.accumulatedFinal + liveSegment;
 
-      // 只要即時或確定辨識文字出現任何結束關鍵詞，立刻結算停止！
       if (STOP_VOICE_REGEX.test(liveSegment) || STOP_VOICE_REGEX.test(fullLiveCheck)) {
         const cleanedSegment = liveSegment.replace(STOP_VOICE_REGEX, '').trim();
-        if (cleanedSegment) {
-          voiceSessionState.accumulatedFinal += cleanedSegment;
-        }
+        if (cleanedSegment) voiceSessionState.accumulatedFinal += cleanedSegment;
         voiceSessionState.currentSegmentInterim = '';
         stopVoiceInput();
         return;
@@ -1347,7 +1365,6 @@ function initSpeechRecognition() {
         voiceSessionState.currentSegmentInterim = '';
       }
 
-      // 即時將收到的內容寫入暫存文字框
       const box = document.getElementById('voiceBufferBox');
       const liveText = voiceSessionState.accumulatedFinal + voiceSessionState.currentSegmentInterim;
       box.value = (voiceSessionState.baseBeforeSession ? voiceSessionState.baseBeforeSession + '\n' : '') + liveText;
@@ -1355,24 +1372,16 @@ function initSpeechRecognition() {
     };
 
     rec.onerror = (e) => {
-      console.warn('Speech error:', e.error);
       if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         voiceSessionState.manualListening = false;
         stopMicLevelMeter();
         finalizeVoiceSession(voiceSessionState.baseBeforeSession, voiceSessionState.accumulatedFinal);
-        alert('麥克風權限被拒絕，請至 iPhone「設定 ➔ Safari ➔ 麥克風」允許存取。');
-      } else if (e.error === 'no-speech' || e.error === 'aborted' || e.error === 'network') {
-        // 靜音超時或短暫中斷時保持狀態，交由 onend 自動續接
-        const pill = document.getElementById('voiceStatusPill');
-        if (voiceSessionState.manualListening) {
-          pill.textContent = '🔴 持續待命聆聽中...（請直接說話，或喊「結束」停止）';
-        }
+        alert('麥克風權限未開啟，您可直接點擊下方「模擬指令」按鈕體驗語音解析效果！');
       }
     };
 
     rec.onend = () => {
       appState.isListening = false;
-      // 若結束當下還有殘留 interim 文字，先併入 accumulatedFinal 避免遺失
       if (voiceSessionState.currentSegmentInterim) {
         const leftover = voiceSessionState.currentSegmentInterim.replace(STOP_VOICE_REGEX, '').trim();
         if (leftover) voiceSessionState.accumulatedFinal += leftover;
@@ -1386,9 +1395,7 @@ function initSpeechRecognition() {
           try {
             appState.recognition = createRecognizer();
             appState.recognition.start();
-          } catch (err) {
-            console.warn('Re-start error:', err);
-          }
+          } catch (err) {}
         }, 80);
       } else {
         finalizeVoiceSession(voiceSessionState.baseBeforeSession, voiceSessionState.accumulatedFinal);
@@ -1430,9 +1437,7 @@ async function startMicLevelMeter() {
       voiceSessionState.meterRaf = requestAnimationFrame(updateMeter);
     };
     updateMeter();
-  } catch (e) {
-    console.warn('Mic meter unavailable:', e);
-  }
+  } catch (e) {}
 }
 
 function stopMicLevelMeter() {
@@ -1449,20 +1454,9 @@ function stopMicLevelMeter() {
   if (btn) btn.style.transform = 'scale(1)';
 }
 
-function speakFeedback(text) {
-  if (!('speechSynthesis' in window)) return;
-  try {
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = 'zh-TW';
-    utter.rate = 1.15;
-    window.speechSynthesis.speak(utter);
-  } catch (e) {}
-}
-
 function toggleVoiceInput() {
   if (!appState.recognition && !appState.createRecognizer) {
-    return alert('您的瀏覽器不支援語音辨識');
+    return alert('此環境不支援麥克風語音辨識，請點擊下方「模擬指令」按鈕體驗！');
   }
   if (voiceSessionState.manualListening || appState.isListening) {
     stopVoiceInput();
@@ -1473,7 +1467,6 @@ function toggleVoiceInput() {
     voiceSessionState.accumulatedFinal = '';
     voiceSessionState.currentSegmentInterim = '';
 
-    // 鎖定暫存框並立即切換按鈕狀態
     box.disabled = true;
     const btn = document.getElementById('btnVoiceToggle');
     btn.classList.add('listening');
@@ -1483,17 +1476,10 @@ function toggleVoiceInput() {
     pill.textContent = '🔴 正在啟動麥克風...';
     pill.classList.add('active');
 
-    // 關鍵修正：必須在點擊事件的同步執行階段直接呼叫 recognition.start()，iOS Safari 才會正式開啟語音辨識引擎！
     try {
-      if (appState.createRecognizer) {
-        appState.recognition = appState.createRecognizer();
-      }
+      if (appState.createRecognizer) appState.recognition = appState.createRecognizer();
       appState.recognition.start();
-    } catch (e) {
-      console.warn('Direct start error:', e);
-    }
-
-    // 啟動音量動態光圈回饋，讓使用者一眼看到麥克風正在收音
+    } catch (e) {}
     startMicLevelMeter();
   }
 }
@@ -1504,14 +1490,10 @@ function stopVoiceInput() {
   appState.isListening = false;
   clearTimeout(voiceSessionState.restartTimer);
   stopMicLevelMeter();
-
   try {
     if (appState.recognition) appState.recognition.stop();
   } catch (e) {}
-
   finalizeVoiceSession(voiceSessionState.baseBeforeSession, voiceSessionState.accumulatedFinal);
-  // 停止收音後再播報結束提示，完全不干擾麥克風收音
-  setTimeout(() => speakFeedback('結束語音輸入'), 120);
 }
 
 function finalizeVoiceSession(prevText, rawSessionText) {
@@ -1524,7 +1506,7 @@ function finalizeVoiceSession(prevText, rawSessionText) {
 
   const cleanedNew = cleanChineseVoiceFiller_(rawSessionText);
   const box = document.getElementById('voiceBufferBox');
-  box.disabled = false; // 解除鎖定
+  box.disabled = false;
 
   const pill = document.getElementById('voiceStatusPill');
   if (cleanedNew) {
@@ -1532,7 +1514,7 @@ function finalizeVoiceSession(prevText, rawSessionText) {
     pill.textContent = '✅ 已自動濾除贅字並整理至暫存區（可繼續開啟追加或按送出）';
   } else {
     box.value = prevText;
-    pill.textContent = '⚠️ 本次未偵測到有效語音內容，請確認麥克風權限後再試';
+    pill.textContent = '⚠️ 未偵測到語音內容，您也可點擊下方「模擬指令」直接體驗';
   }
   pill.classList.remove('active');
 }
@@ -1540,14 +1522,11 @@ function finalizeVoiceSession(prevText, rawSessionText) {
 function cleanChineseVoiceFiller_(raw) {
   let s = String(raw || '').trim();
   if (!s) return '';
-  // 1. 清除口語結束詞與常見停頓語助詞（呃、那個、嗯、啊、就是說、然後呢...）
   s = s.replace(STOP_VOICE_REGEX, '');
   s = s.replace(/(?:呃+|嗯+|啊+|喔+|哦+|那個+|這個+|就是說|然後呢|怎麼說)[，,、\s]*/g, '');
-  // 2. 校正牧場常見同音誤辨
   s = s.replace(/控訴/g, '控速');
   s = s.replace(/O\s*T\s*C\s*E\s*毫升/gi, 'OTC 1毫升');
   s = s.replace(/([ABCDPNXYQ])\s+(\d+)/gi, (_, p, n) => p.toUpperCase() + n);
-  // 3. 整理多餘空白與標點
   s = s.replace(/\s{2,}/g, '。').replace(/。{2,}/g, '。').trim();
   if (s && !/[。！!？?]$/.test(s)) s += '。';
   return s;
@@ -1561,7 +1540,7 @@ function clearVoiceBuffer() {
 function promptVoiceSubmit() {
   if (voiceSessionState.manualListening || appState.isListening) return alert('請先結束語音輸入再送出');
   const text = document.getElementById('voiceBufferBox').value.trim();
-  if (!text) return alert('暫存文字框目前沒有內容喔！');
+  if (!text) return alert('暫存文字框目前沒有內容喔！可先點擊上方「模擬指令」體驗。');
   document.getElementById('voiceConfirmPreview').textContent = text;
   document.getElementById('voiceConfirmModal').classList.add('open');
 }
@@ -1570,26 +1549,45 @@ async function executeVoiceBatchSubmit() {
   closeModal('voiceConfirmModal');
   const text = document.getElementById('voiceBufferBox').value.trim();
   const resLog = document.getElementById('voiceResultLog');
-  resLog.innerHTML = '⏳ 正在批次寫入《東寶牧場｜現場管理資料庫_v2》...';
 
-  try {
-    const data = await postToGas({
-      action: 'submitVoiceBatch',
-      userId: appState.currentUser ? appState.currentUser.userId : '',
-      userName: appState.currentUser ? appState.currentUser.name : '',
-      cleanedText: text
-    }, 15000);
-    if (!data.ok) {
-      resLog.innerHTML = `<span style="color:#f87171;">❌ ${data.error}</span>`;
-      return;
+  // Demo 模式本地端規則解析引擎（展示自然語言轉結構化資料表與平面圖連動）
+  const lines = text.split(/\n+/).map(l => l.trim()).filter(Boolean);
+  const results = [];
+  lines.forEach((line, idx) => {
+    const evId = 'EV-DEMO-' + String(appState.voiceEvents.length + idx + 1).padStart(3, '0');
+    let target = '全場通用';
+    if (/22欄|P22/.test(line)) {
+      target = '分娩舍第22欄';
+      if (appState.dashboard.pens['P22']) {
+        appState.dashboard.pens['P22'].colorState = 'normal';
+        appState.dashboard.pens['P22'].health = '已完成新生基礎處置';
+        appState.dashboard.pens['P22'].note = line;
+      }
+    } else if (/A2/.test(line)) {
+      target = '配種舍第2欄（A2）';
+      if (appState.dashboard.pens['A2']) {
+        appState.dashboard.pens['A2'].colorState = 'estrus';
+        appState.dashboard.pens['A2'].health = '發情／返情觀察中';
+        appState.dashboard.pens['A2'].note = line;
+      }
+    } else if (/旋鈕|母前料/.test(line)) {
+      target = '環境溫控與飼料倉';
+      const knobMatch = line.match(/旋鈕[^\d]*(\d+)/);
+      if (knobMatch) appState.dashboard.latestEnv.knob = knobMatch[1];
+      const feedMatch = line.match(/母前料[^\d]*(\d+包)/);
+      if (feedMatch) appState.dashboard.latestEnv.yellowFeed = feedMatch[1];
     }
-    document.getElementById('voiceBufferBox').value = '';
-    resLog.innerHTML = `<div style="color:#34d399;font-weight:700;margin-bottom:6px;">✅ ${data.message}</div>` +
-      (data.results || []).map(r => `<div>• [${r.evId}] <b>${r.penTarget}</b>：${r.summary}</div>`).join('');
-    await refreshAllData();
-  } catch (err) {
-    resLog.innerHTML = `<span style="color:#f87171;">❌ 寫入失敗：${err.message}</span>`;
-  }
+    results.push({ evId, penTarget: target, summary: line });
+    appState.voiceEvents.push({ evId, penTarget: target, summary: line });
+  });
+
+  document.getElementById('voiceBufferBox').value = '';
+  resLog.innerHTML = `<div style="color:#34d399;font-weight:700;margin-bottom:6px;">✅ Demo 解析完成！已同步更新平面圖燈號與收班簡報（共 ${results.length} 筆）：</div>` +
+    results.map(r => `<div>• [${r.evId}] <b>${r.penTarget}</b>：${r.summary}</div>`).join('');
+
+  rebuildDemoReports();
+  renderDashboard();
+  renderReports();
 }
 
 /* ============================================================================
@@ -1697,25 +1695,90 @@ async function executeChecklistSubmit() {
   const ids = Array.from(appState.stagedChecklistIds);
   if (ids.length === 0) return;
 
-  try {
-    const data = await postToGas({
-      action: 'submitChecklist',
-      userId: appState.currentUser ? appState.currentUser.userId : '',
-      userName: appState.currentUser ? appState.currentUser.name : '',
-      completedIds: ids
-    }, 15000);
-    if (!data.ok) return alert(data.error);
-    appState.stagedChecklistIds.clear();
-    alert('✅ ' + data.message);
-    await refreshAllData();
-  } catch (err) {
-    alert('送出失敗：' + err.message);
-  }
+  const completedItems = appState.checklist.filter(i => ids.includes(i.remId));
+  completedItems.forEach(item => {
+    if (appState.dashboard.pens[item.penCode]) {
+      appState.dashboard.pens[item.penCode].colorState = 'normal';
+      appState.dashboard.pens[item.penCode].dueTask = '';
+    }
+    appState.voiceEvents.push({
+      evId: item.remId,
+      penTarget: item.penChinese,
+      summary: '已完成檢核：' + item.task
+    });
+  });
+
+  appState.checklist = appState.checklist.filter(i => !ids.includes(i.remId));
+  appState.stagedChecklistIds.clear();
+  alert(`✅ 已完成 ${completedItems.length} 項現場檢核，並同步更新平面圖與工作日誌！`);
+
+  rebuildDemoReports();
+  renderDashboard();
+  renderChecklist();
+  renderReports();
 }
 
 /* ============================================================================
- * 五、工作日誌與老闆重點回報
+ * 五、工作日誌與管理層重點回報自動生成引擎
  * ==========================================================================*/
+function rebuildDemoReports() {
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  const compactDate = today.replace(/-/g, '');
+  const env = appState.dashboard.latestEnv;
+  const extraLines = appState.voiceEvents.length > 0
+    ? appState.voiceEvents.map(e => `  * ${e.penTarget}：${e.summary}`).join('\n')
+    : '  * 分娩舍第25欄（13 頭仔豬，滿 16 日齡）：完成公仔豬去勢閹割及常規疫苗施打（SEP 2 毫升 ＋ PCV2 1 毫升）。';
+
+  const fullLog = `現場作業系統-工作日誌_${compactDate}
+
+一、時間
+* 日期：${today}
+
+二、天氣與環境紀錄
+* 地點：屏東縣內埔鄉
+* 開班環境檢查：全區保暖燈與通風設備運作正常。
+* 收班環境說明：收班室外氣溫 22°C，今晚入夜後預估最低溫 19°C。
+
+三、低溫控制旋鈕刻度（範圍 0–60）
+* 收班設定刻度：${env.knob}
+
+四、今日完成工作
+* 仔豬基礎處置與免疫作業：
+${extraLines}
+* 分娩舍離乳仔豬漸進換料：
+  * 分娩舍第17欄（留欄仔豬 5 頭）：持續執行由人工乳逐步混入白色（哺乳料）之 14 天漸進換料作業。
+
+五、收班飼料存量
+* 黃色（母前料）：${env.yellowFeed}
+* 紅色（母後料）：${env.redFeed}
+* 白色（哺乳料）：${env.whiteFeed}
+* 人工乳（粉）：${env.milkPowder}
+
+六、巡視與用藥紀錄
+* 持續觀察與照護中欄位：
+  * A1、B19、C12（種母豬各 1 頭）：持續觀察外陰變化與發情跡象，評估公豬試情與配種時機。
+  * 分娩舍第21欄（仔豬 10 頭）：因母豬泌乳不足，每日以沖泡人工乳粉加強槽位輔餵。
+  * 分娩舍第22欄（母豬 1 頭＋仔豬 14 頭）：持續留意 1 頭弱仔吸吮活力與保溫狀態。
+
+七、其他事項詳情
+* 今日無其他需額外報備之長期特殊事項。
+
+八、明日交辦事項
+* 懷孕母豬預產警戒巡查：持續密切觀察分娩舍第8欄、第14欄待產母豬分娩徵兆。
+* 環境與溫控例行檢查：開班與收班檢查分娩舍室內溫度、保溫燈及低溫控制旋鈕刻度（範圍 0–60）。`;
+
+  const bossReport = `* **氣候與設備溫控**
+  * 屏東內埔收班室外氣溫 22°C，今晚入夜預估最低溫 19°C；低溫控速旋鈕刻度設定為 ${env.knob}。
+* **收班飼料存量**
+  * 黃色（母前料）${env.yellowFeed}、紅色（母後料）${env.redFeed}、白色（哺乳料）${env.whiteFeed}、人工乳（粉）${env.milkPowder}。
+* **今日作業與處置紀錄**
+${extraLines}
+* **母豬發情／返情觀察（請管理層巡視確認）**
+  * 持續追蹤 A1、B19、C12 母豬發情跡象與公豬試情進度，評估配種時機。`;
+
+  appState.reports = { fullWorkLog: fullLog, bossReport: bossReport };
+}
+
 function renderReports() {
   if (!appState.reports) return;
   document.getElementById('fullWorkLogBox').value = appState.reports.fullWorkLog || '';
